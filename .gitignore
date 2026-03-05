@@ -1,0 +1,14 @@
+# Секретные файлы
+
+config.py
+
+# База данных (чтобы никто не украл данные игроков)
+*.db
+*.sqlite3
+
+# Служебные файлы PyCharm и Python
+.env
+.venv/
+.idea/
+__pycache__/
+database.jsongit push -u origin main --force
