@@ -46,7 +46,7 @@
         "balance": 103,
         "inventory": {
             "💦": 6767,
-            "💰": 202111,
+            "💰": 203111,
             "🔦": 1,
             "🎖️": 1,
             "🇷🇺": 55,
@@ -79,7 +79,7 @@
         "level": 19,
         "oil_place_id": 1,
         "first_name": "Jew",
-        "referral_count": 1
+        "referral_count": 2
     },
     "5000000": {
         "balance": 0,
@@ -118,7 +118,6 @@
     "7015010956": {
         "balance": 15,
         "inventory": {
-            "💰": 22,
             "👾": 510,
             "🍬": 20,
             "🔦": 1,
@@ -127,8 +126,7 @@
             "🍺": 79,
             "🥼": 40,
             "🎂": 19,
-            "🇯🇵": 1,
-            "🇦🇱": 2
+            "🇯🇵": 1
         },
         "masturbations_count": 0,
         "username": "sqdSapnap",
@@ -891,5 +889,27 @@
         "masturbations_count": 0,
         "username": null,
         "registered": true
+    },
+    "6669388306": {
+        "balance": 0,
+        "inventory": [],
+        "masturbations_count": 0,
+        "username": null,
+        "registered": true
+    },
+    "8486018801": {
+        "balance": 1,
+        "inventory": {
+            "💰": 111111
+        },
+        "masturbations_count": 0,
+        "username": null,
+        "registered": true,
+        "chats_data": {
+            "8486018801": {
+                "masturbations_count": 1,
+                "last_droch_time": 1772804740.9362092
+            }
+        }
     }
 }

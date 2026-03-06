@@ -26,7 +26,7 @@ from games.gamecub import router as gamecub_router
 from farm.topdrochek import router as topdrochek_router
 from tools.reklama import router as reklama_router
 from dataIT.bonuscode import router as bonuscode_router
-
+from handlers.bafus import router as bafus_router
 
 # --- НАСТРОЙКИ БОТА ---
 # !!! ВАЖНО: Замени "ТВОЙ_ТОКЕН" на токен твоего бота, полученный от BotFather !!!
@@ -144,6 +144,7 @@ async def main():
   dp.include_router(topdrochek_router)
   dp.include_router(reklama_router)
   dp.include_router(bonuscode_router)
+  dp.include_router(bafus_router)
 
 
   # 5. Удаление ожидающих обновлений
