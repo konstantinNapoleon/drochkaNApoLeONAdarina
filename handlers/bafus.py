@@ -3,6 +3,8 @@ import random
 import time
 import math
 import html
+import json
+import os
 from datetime import datetime
 
 from aiogram import Bot, Dispatcher, Router, F, types
@@ -11,6 +13,8 @@ from aiogram.types import Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.enums import ParseMode
 
+
+DB_FILE = "users_database.json"
 
 # Подключаем роутер
 router = Router()
@@ -31,22 +35,51 @@ GAME_ITEMS = {
 ITEMS_PER_PAGE = 15
 FARMCOIN_EMOJI = "💰"
 
-# Список активных промокодов и наград за них
 PROMOCODES = {
     "START": {
-        "rewards": {"🌹": 15, "🌷": 5, "🫘": 10, "💧": 3},
+        "rewards": {"🌹": 15, "🌷": 5, "🫘": 5, "💧": 3},
         "description": "Стартовый набор садовода"
     },
     "SPRING2024": {
         "rewards": {"🌻": 2, "💧": 5},
         "description": "Весенний бонус"
+    },
+    "TEXT": {
+        "rewards": {"💰": 500},
+        "description": "Тестовый промокод"
     }
 }
 
 # ==========================================
-# 2. ИМИТАЦИЯ БД
+# 2. РАБОТА С JSON БАЗОЙ ДАННЫХ
 # ==========================================
 users_db = {}
+
+
+def load_db():
+    global users_db
+    if os.path.exists(DB_FILE):
+        try:
+            with open(DB_FILE, "r", encoding="utf-8") as f:
+                # JSON сохраняет ключи словарей как строки.
+                # Нам нужно превратить строковые user_id обратно в числа (int).
+                raw_db = json.load(f)
+                users_db = {int(k): v for k, v in raw_db.items()}
+                print("База данных успешно загружена!")
+        except Exception as e:
+            print(f"Ошибка при загрузке базы данных: {e}")
+            users_db = {}
+    else:
+        print("База данных не найдена. Создана новая пустая база.")
+        users_db = {}
+
+
+def save_db():
+    try:
+        with open(DB_FILE, "w", encoding="utf-8") as f:
+            json.dump(users_db, f, indent=4, ensure_ascii=False)
+    except Exception as e:
+        print(f"Ошибка при сохранении базы данных: {e}")
 
 
 def get_user_db(user_id: int):
@@ -60,13 +93,25 @@ def get_user_db(user_id: int):
                 "watered": False
             },
             "achievements": [],
-            "used_promos": []  # Список использованных промокодов
+            "used_promos": []
         }
+        save_db()  # Сохраняем нового юзера сразу
     return users_db[user_id]
 
 
 def get_user(user_id):
-    return get_user_db(user_id)
+    user = get_user_db(user_id)
+    # Защита для старых аккаунтов, если структура обновилась
+    changed = False
+    if "used_promos" not in user:
+        user["used_promos"] = []
+        changed = True
+    if "lyk" not in user:
+        user["lyk"] = {"🪻": 0, "🌺": 0, "🫘": 0, "🌻": 0, "🌹": 0, "🌷": 0, "💧": 5}
+        changed = True
+    if changed:
+        save_db()
+    return user
 
 
 # ==========================================
@@ -77,6 +122,7 @@ def ensure_inv_dict(user) -> dict:
     if not isinstance(inv, dict):
         inv = {}
         user["inventory"] = inv
+        save_db()
     return inv
 
 
@@ -140,13 +186,13 @@ async def show_lyk(message: Message):
     inv = user["lyk"]
     text = (
         f"🧺 *Твое лукошко:*\n\n"
-        f"🪻 Гиацинты: {inv['🪻']}\n"
-        f"🌺 Гибискусы: {inv['🌺']}\n"
-        f"🫘 Семена розы: {inv['🫘']}\n"
-        f"🌻 Подсолнухи: {inv['🌻']}\n"
-        f"🌹 Розы: {inv['🌹']}\n"
-        f"🌷 Тюльпаны: {inv['🌷']}\n"
-        f"💧 Вода: {inv['💧']}"
+        f"🪻 Гиацинты: {inv.get('🪻', 0)}\n"
+        f"🌺 Гибискусы: {inv.get('🌺', 0)}\n"
+        f"🫘 Семена розы: {inv.get('🫘', 0)}\n"
+        f"🌻 Подсолнухи: {inv.get('🌻', 0)}\n"
+        f"🌹 Розы: {inv.get('🌹', 0)}\n"
+        f"🌷 Тюльпаны: {inv.get('🌷', 0)}\n"
+        f"💧 Вода: {inv.get('💧', 0)}"
     )
     await message.reply(text, parse_mode=ParseMode.MARKDOWN)
 
@@ -179,7 +225,8 @@ async def find_flowers_command(message: Message):
         emoji, name, count_func = random.choice(flower_types)
         amount = count_func()
 
-        user["lyk"][emoji] += amount
+        user["lyk"][emoji] = user["lyk"].get(emoji, 0) + amount
+        save_db()  # Сохраняем после изменения лукошка
 
         success_phrases = [
             f"<i>Разгребая густую траву, ты замечаешь что-то яркое... Ого, да это же...</i>\n\n🌾 {emoji} <b>{name}</b> (+{amount})\n\n<i>Они отправляются прямиком в лукошко!</i>",
@@ -197,10 +244,10 @@ async def find_flowers_command(message: Message):
         await message.reply(text, parse_mode=ParseMode.HTML)
     else:
         fail_phrases = [
-            "<i>Ты обошел всю поляну, но нашел только старый рваный 👞 башмак...</i>\nПопробуй поискать еще!",
-            "<i>Пчелы 🐝 прогнали тебя с цветочной поляны!</i>\nПридется вернуться позже.",
+            "<i>Ты обошел всю поляну, но нашел только старый рваный башмак...</i>\nПопробуй поискать еще!",
+            "<i>Пчелы прогнали тебя с цветочной поляны!</i>\nПридется вернуться позже.",
             "<i>Ты долго бродил, но все цветы кто-то собрал до тебя.</i>\nНе сдавайся, поищи еще!",
-            "<i>Ты увлекся погоней за красивой бабочкой 🦋 и забыл, зачем пришел.</i>\nЛукошко осталось пустым."
+            "<i>Ты увлекся погоней за красивой бабочкой и забыл, зачем пришел.</i>\nЛукошко осталось пустым."
         ]
 
         text = (
@@ -211,44 +258,55 @@ async def find_flowers_command(message: Message):
         await message.reply(text, parse_mode=ParseMode.HTML)
 
 
-# --- ПРОМОКОД С АРГУМЕНТОМ ---
 @router.message(Command("promo"))
 async def promo_command(message: Message):
     user = get_user(message.from_user.id)
 
-    # Получаем текст после команды
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
-        await message.reply("📝 <b>Использование:</b> <code>/promo [слово]</code>", parse_mode=ParseMode.HTML)
+        available = ", ".join(PROMOCODES.keys())
+        await message.reply(
+            f"📝 <b>Использование:</b> <code>/promo [слово]</code>\n\n"
+            f"💡 <i>Доступные промокоды: {available}</i>",
+            parse_mode=ParseMode.HTML
+        )
         return
 
-    promo_code = args[1].strip().upper()  # Переводим в верхний регистр для удобства
+    promo_code = args[1].strip().upper()
 
     if promo_code not in PROMOCODES:
-        await message.reply("❌ <b>Такого промокода не существует!</b>", parse_mode=ParseMode.HTML)
+        available = ", ".join(PROMOCODES.keys())
+        await message.reply(
+            f"❌ <b>Промокода «{html.escape(promo_code)}» не существует!</b>\n\n"
+            f"💡 <i>Доступные промокоды: {available}</i>",
+            parse_mode=ParseMode.HTML
+        )
         return
 
     if promo_code in user["used_promos"]:
         await message.reply("⚠️ <b>Ты уже использовал этот промокод!</b>", parse_mode=ParseMode.HTML)
         return
 
-    # Выдаем награды
     promo_data = PROMOCODES[promo_code]
     rewards_text = ""
 
     for item_emoji, amount in promo_data["rewards"].items():
-        user["lyk"][item_emoji] += amount
+        if item_emoji == "💰":
+            inv = ensure_inv_dict(user)
+            inv["💰"] = inv.get("💰", 0) + amount
+        else:
+            user["lyk"][item_emoji] = user["lyk"].get(item_emoji, 0) + amount
         rewards_text += f"{item_emoji} <b>{amount} шт.</b>\n"
 
     user["used_promos"].append(promo_code)
+    save_db()  # Сохраняем после активации промокода
 
     text = (
-        "🎁 <b>ПРОМОКОД АКТИВИРОВАН!</b> \n"
+        "🎁 <b>ПРОМОКОД АКТИВИРОВАН!</b> 🎁\n"
         "━━━━━━━━━━━━━━━\n"
         f"<i>{promo_data['description']}:</i>\n\n"
         f"{rewards_text}\n"
-        "━━━━━━━━━━━━━━━\n"
-        "<i>Проверь лукошко: /lyk</i>"
+        "━━━━━━━━━━━━━━━"
     )
     await message.reply(text, parse_mode=ParseMode.HTML)
 
@@ -262,7 +320,7 @@ async def plant_seeds(message: Message):
         return
 
     amount = int(args[1])
-    if user["lyk"]["🫘"] < amount:
+    if user["lyk"].get("🫘", 0) < amount:
         await message.reply("У тебя в лукошке недостаточно семян розы 🫘!")
         return
 
@@ -274,6 +332,7 @@ async def plant_seeds(message: Message):
     user["garden"]["seeds_planted"] = amount
     user["garden"]["plant_timestamp"] = time.time()
     user["garden"]["watered"] = False
+    save_db()  # Сохраняем посадку
     await message.reply(f"Ты успешно посадил {amount} 🫘!")
 
 
@@ -315,7 +374,7 @@ async def my_garden(message: Message):
         status = "✨ Можно собирать! 👉 /collect_flowers"
 
     text = (
-        "🏡 <b>ТВОЙ САД</b> \n"
+        "🏡 <b>ТВОЙ САД</b> 🏡\n"
         "━━━━━━━━━━━━━━━\n\n"
         f"{visual_plants}\n"
         f"{visual_ground}\n\n"
@@ -337,13 +396,14 @@ async def water_garden(message: Message):
     if garden["watered"]:
         await message.reply("Тебе не нужно поливать цветы, они уже политы!")
         return
-    if user["lyk"]["💧"] < 1:
+    if user["lyk"].get("💧", 0) < 1:
         await message.reply("У тебя в лукошке нет предмета 💧 Вода!")
         return
 
     user["lyk"]["💧"] -= 1
     garden["watered"] = True
-    await message.reply("Ты успешно полил свою клумбу -10 минут к росту цветов")
+    save_db()  # Сохраняем полив
+    await message.reply("Ты успешно полил свою клумбу -10минут к росту цветов")
 
 
 @router.message(Command("collect_flowers", ignore_case=True))
@@ -371,17 +431,18 @@ async def collect_flowers(message: Message):
         if random.random() <= 0.35:
             tulips_grown += 1
 
-    user["lyk"]["🌹"] += roses_grown
-    user["lyk"]["🌷"] += tulips_grown
+    user["lyk"]["🌹"] = user["lyk"].get("🌹", 0) + roses_grown
+    user["lyk"]["🌷"] = user["lyk"].get("🌷", 0) + tulips_grown
     user["garden"] = {"seeds_planted": 0, "plant_timestamp": 0, "watered": False}
+    save_db()  # Сохраняем сбор
 
     if tulips_grown > 0:
         await message.reply(
-            f"Ты успешно собрал {roses_grown} роз 🌹, \n"
+            f"Ты успешно собрал {roses_grown} роз, \n"
             f"А ещё у тебя вырос тюльпан ({tulips_grown} шт.) и ты положил их в лукошко!"
         )
     else:
-        await message.reply(f"Ты успешно собрал {roses_grown} роз 🌹 в лукошко!")
+        await message.reply(f"Ты успешно собрал {roses_grown} роз в лукошко!")
 
 
 @router.message(Command("craft_bouquet"))
@@ -391,7 +452,7 @@ async def craft_bouquet(message: Message):
     lyk = user["lyk"]
     inv = ensure_inv_dict(user)
 
-    if lyk["🌹"] >= 50 and lyk["🌻"] >= 1 and lyk["🌷"] >= 5:
+    if lyk.get("🌹", 0) >= 50 and lyk.get("🌻", 0) >= 1 and lyk.get("🌷", 0) >= 5:
         lyk["🌹"] -= 50
         lyk["🌻"] -= 1
         lyk["🌷"] -= 5
@@ -405,6 +466,7 @@ async def craft_bouquet(message: Message):
             user["achievements"].append("🌹: Настоящий садовод")
             response_text += "\n\n🏆 *Получена новая ачивка:* 🌹 Настоящий садовод!"
 
+        save_db()  # Сохраняем крафт
         await message.reply(response_text, parse_mode=ParseMode.MARKDOWN)
     else:
         await message.reply(
@@ -413,7 +475,8 @@ async def craft_bouquet(message: Message):
             "🌹 Розы: 50\n"
             "🌻 Подсолнух: 1\n"
             "🌷 Тюльпаны: 5\n\n"
-            f"У тебя в лукошке: 🌹 {lyk['🌹']}, 🌻 {lyk['🌻']}, 🌷 {lyk['🌷']}."
+            f"У тебя в лукошке: 🌹 {lyk.get('🌹', 0)}, 🌻 {lyk.get('🌻', 0)}, 🌷 {lyk.get('🌷', 0)}."
         )
+
 
 
