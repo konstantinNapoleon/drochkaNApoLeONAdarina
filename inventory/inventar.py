@@ -166,7 +166,7 @@ BONUS_CODES = {
 }
 
 
-@router.message(Command("bonuscode", "promo", "промо"))
+@router.message(Command("bonuscode", "промо"))
 async def process_bonus(message: types.Message, command: CommandObject, get_user, save_db):
     if not command.args:
         return await message.reply(
