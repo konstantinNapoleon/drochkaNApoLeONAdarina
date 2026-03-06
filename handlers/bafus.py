@@ -37,10 +37,10 @@ FARMCOIN_EMOJI = "💰"
 
 PROMOCODES = {
     "START": {
-        "rewards": {"🌹": 15, "🌷": 5, "🫘": 5, "💧": 3},
+        "rewards": {"🌹": 15, "🌺": 25, "🌷": 5, "🫘": 5, "💧": 3},
         "description": "Стартовый набор садовода"
     },
-    "SPRING2024": {
+    "SPRING2026": {
         "rewards": {"🌻": 2, "💧": 5},
         "description": "Весенний бонус"
     },
