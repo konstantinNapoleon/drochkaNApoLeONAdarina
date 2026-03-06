@@ -16,7 +16,7 @@ from aiogram.enums import ParseMode
 router = Router()
 
 # ==========================================
-# 1. СТРУКТУРА ПРЕДМЕТОВ
+# 1. СТРУКТУРА ПРЕДМЕТОВ И ПРОМОКОДОВ
 # ==========================================
 GAME_ITEMS = {
     "💰": {"name": "ФармКоин"},
@@ -30,6 +30,18 @@ GAME_ITEMS = {
 
 ITEMS_PER_PAGE = 15
 FARMCOIN_EMOJI = "💰"
+
+# Список активных промокодов и наград за них
+PROMOCODES = {
+    "START": {
+        "rewards": {"🌹": 15, "🌷": 5, "🫘": 5, "💧": 3},
+        "description": "Стартовый набор садовода"
+    },
+    "SPRING2024": {
+        "rewards": {"🌻": 2, "💧": 5},
+        "description": "Весенний бонус"
+    }
+}
 
 # ==========================================
 # 2. ИМИТАЦИЯ БД
@@ -47,7 +59,8 @@ def get_user_db(user_id: int):
                 "plant_timestamp": 0,
                 "watered": False
             },
-            "achievements": []
+            "achievements": [],
+            "used_promos": []  # Список использованных промокодов
         }
     return users_db[user_id]
 
@@ -159,7 +172,7 @@ async def find_flowers_command(message: Message):
         flower_types = [
             ("🪻", "Гиацинт", lambda: random.randint(2, 4)),
             ("🌺", "Гибискус", lambda: random.randint(4, 6)),
-            ("🫘", "Семена для розы", lambda: random.randint(3, 6)),
+            ("🫘", "Семена для розы", lambda: random.randint(1, 3)),
             ("🌻", "Подсолнух", lambda: 1)
         ]
 
@@ -168,7 +181,6 @@ async def find_flowers_command(message: Message):
 
         user["lyk"][emoji] += amount
 
-        # --- КРЕАТИВНЫЕ ФРАЗЫ ПРИ НАХОДКЕ ---
         success_phrases = [
             f"<i>Разгребая густую траву, ты замечаешь что-то яркое... Ого, да это же...</i>\n\n🌾 {emoji} <b>{name}</b> (+{amount})\n\n<i>Они отправляются прямиком в лукошко!</i>",
             f"<i>Ты долго бродил по поляне, слушая пение птиц, как вдруг у твоих ног блеснуло сокровище природы...</i>\n\n✨ {emoji} <b>{name}</b> в количестве <b>{amount} шт.</b>!\n\n<i>Отличная находка!</i>",
@@ -184,12 +196,11 @@ async def find_flowers_command(message: Message):
 
         await message.reply(text, parse_mode=ParseMode.HTML)
     else:
-        # --- КРЕАТИВНЫЕ ФРАЗЫ ПРИ НЕУДАЧЕ ---
         fail_phrases = [
-            "<i>Ты обошел всю поляну, но нашел только старый рваный башмак...</i>\nПопробуй поискать еще!",
-            "<i>Пчелы прогнали тебя с цветочной поляны!</i>\nПридется вернуться позже.",
+            "<i>Ты обошел всю поляну, но нашел только старый рваный 👞 башмак...</i>\nПопробуй поискать еще!",
+            "<i>Пчелы 🐝 прогнали тебя с цветочной поляны!</i>\nПридется вернуться позже.",
             "<i>Ты долго бродил, но все цветы кто-то собрал до тебя.</i>\nНе сдавайся, поищи еще!",
-            "<i>Ты увлекся погоней за красивой бабочкой и забыл, зачем пришел.</i>\nЛукошко осталось пустым."
+            "<i>Ты увлекся погоней за красивой бабочкой 🦋 и забыл, зачем пришел.</i>\nЛукошко осталось пустым."
         ]
 
         text = (
@@ -198,6 +209,48 @@ async def find_flowers_command(message: Message):
             f"╰ {random.choice(fail_phrases)}"
         )
         await message.reply(text, parse_mode=ParseMode.HTML)
+
+
+# --- ПРОМОКОД С АРГУМЕНТОМ ---
+@router.message(Command("promo"))
+async def promo_command(message: Message):
+    user = get_user(message.from_user.id)
+
+    # Получаем текст после команды
+    args = message.text.split(maxsplit=1)
+    if len(args) < 2:
+        await message.reply("📝 <b>Использование:</b> <code>/promo [слово]</code>", parse_mode=ParseMode.HTML)
+        return
+
+    promo_code = args[1].strip().upper()  # Переводим в верхний регистр для удобства
+
+    if promo_code not in PROMOCODES:
+        await message.reply("❌ <b>Такого промокода не существует!</b>", parse_mode=ParseMode.HTML)
+        return
+
+    if promo_code in user["used_promos"]:
+        await message.reply("⚠️ <b>Ты уже использовал этот промокод!</b>", parse_mode=ParseMode.HTML)
+        return
+
+    # Выдаем награды
+    promo_data = PROMOCODES[promo_code]
+    rewards_text = ""
+
+    for item_emoji, amount in promo_data["rewards"].items():
+        user["lyk"][item_emoji] += amount
+        rewards_text += f"{item_emoji} <b>{amount} шт.</b>\n"
+
+    user["used_promos"].append(promo_code)
+
+    text = (
+        "🎁 <b>ПРОМОКОД АКТИВИРОВАН!</b> \n"
+        "━━━━━━━━━━━━━━━\n"
+        f"<i>{promo_data['description']}:</i>\n\n"
+        f"{rewards_text}\n"
+        "━━━━━━━━━━━━━━━\n"
+        "<i>Проверь лукошко: /lyk</i>"
+    )
+    await message.reply(text, parse_mode=ParseMode.HTML)
 
 
 @router.message(Command("plant"))
@@ -262,7 +315,7 @@ async def my_garden(message: Message):
         status = "✨ Можно собирать! 👉 /collect_flowers"
 
     text = (
-        "🏡 <b>ТВОЙ САД</b> 🏡\n"
+        "🏡 <b>ТВОЙ САД</b> \n"
         "━━━━━━━━━━━━━━━\n\n"
         f"{visual_plants}\n"
         f"{visual_ground}\n\n"
@@ -290,7 +343,7 @@ async def water_garden(message: Message):
 
     user["lyk"]["💧"] -= 1
     garden["watered"] = True
-    await message.reply("Ты успешно полил свою клумбу -10минут к росту цветов")
+    await message.reply("Ты успешно полил свою клумбу -10 минут к росту цветов")
 
 
 @router.message(Command("collect_flowers", ignore_case=True))
@@ -324,11 +377,11 @@ async def collect_flowers(message: Message):
 
     if tulips_grown > 0:
         await message.reply(
-            f"Ты успешно собрал {roses_grown} роз, \n"
+            f"Ты успешно собрал {roses_grown} роз 🌹, \n"
             f"А ещё у тебя вырос тюльпан ({tulips_grown} шт.) и ты положил их в лукошко!"
         )
     else:
-        await message.reply(f"Ты успешно собрал {roses_grown} роз в лукошко!")
+        await message.reply(f"Ты успешно собрал {roses_grown} роз 🌹 в лукошко!")
 
 
 @router.message(Command("craft_bouquet"))
