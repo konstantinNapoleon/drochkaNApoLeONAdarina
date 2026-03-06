@@ -2,7 +2,7 @@
     "5006326062": {
         "balance": 46,
         "inventory": {
-            "💰": 35688,
+            "💰": 37688,
             "💦": 1042,
             "🍺": 36,
             "👾": 109,
@@ -39,13 +39,14 @@
         "level": 10,
         "xp": 88,
         "first_name": "𝑁𝑎𝑝𝑜𝑙𝑒𝑜𝑛ᵏˣᵈ ✞︎ 🇦🇱",
-        "oil_ban_until": 0
+        "oil_ban_until": 0,
+        "referral_count": 2
     },
     "8455781737": {
         "balance": 103,
         "inventory": {
             "💦": 6767,
-            "💰": 201111,
+            "💰": 202111,
             "🔦": 1,
             "🎖️": 1,
             "🇷🇺": 55,
@@ -77,7 +78,8 @@
         "xp": 143,
         "level": 19,
         "oil_place_id": 1,
-        "first_name": "Jew"
+        "first_name": "Jew",
+        "referral_count": 1
     },
     "5000000": {
         "balance": 0,
@@ -385,7 +387,8 @@
         "username": null,
         "xp": 5,
         "oil": 5,
-        "last_oil_mine": 1772579228.1652353
+        "last_oil_mine": 1772579228.1652353,
+        "registered": true
     },
     "8299427253": {
         "balance": 0,
@@ -862,5 +865,31 @@
         "inventory": [],
         "masturbations_count": 0,
         "username": null
+    },
+    "8771495592": {
+        "balance": 1,
+        "inventory": [],
+        "masturbations_count": 0,
+        "username": "nacalach_chat",
+        "chats_data": {
+            "8771495592": {
+                "masturbations_count": 1,
+                "last_droch_time": 1772801129.1637254
+            }
+        }
+    },
+    "7065120456": {
+        "balance": 0,
+        "inventory": [],
+        "masturbations_count": 0,
+        "username": null,
+        "registered": true
+    },
+    "8039313571": {
+        "balance": 0,
+        "inventory": [],
+        "masturbations_count": 0,
+        "username": null,
+        "registered": true
     }
 }
