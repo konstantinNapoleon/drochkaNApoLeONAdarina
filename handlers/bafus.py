@@ -138,13 +138,7 @@ async def show_lyk(message: Message):
     await message.reply(text, parse_mode=ParseMode.MARKDOWN)
 
 
-# --- НОВАЯ СИСТЕМА ПОИСКА ЦВЕТОВ ---
 def get_current_flower_chance() -> float:
-    """
-    Возвращает шанс успеха (1.0 = 100%, 0.2 = 20%) в зависимости от текущего часа.
-    Четные часы (10:00, 12:00, 14:00...) - 100% шанс.
-    Нечетные часы (11:00, 13:00, 15:00...) - 20% шанс.
-    """
     current_hour = datetime.now().hour
     if current_hour % 2 == 0:
         return 1.0  # 100%
@@ -154,7 +148,6 @@ def get_current_flower_chance() -> float:
 
 @router.message(Command("find_flowers"))
 async def find_flowers_command(message: Message):
-    # Проверка чата
     if message.chat.username != "flowers_pol_doch":
         await message.reply("🌸 Собирать цветы можно только на поляне:\n👉 https://t.me/flowers_pol_doch")
         return
@@ -162,9 +155,7 @@ async def find_flowers_command(message: Message):
     user = get_user(message.from_user.id)
     chance = get_current_flower_chance()
 
-    # Проверка на успех поиска
     if random.random() <= chance:
-        # Если поиск успешен, выбираем ОДИН тип цветка для находки
         flower_types = [
             ("🪻", "Гиацинт", lambda: random.randint(2, 4)),
             ("🌺", "Гибискус", lambda: random.randint(4, 6)),
@@ -172,17 +163,41 @@ async def find_flowers_command(message: Message):
             ("🌻", "Подсолнух", lambda: 1)
         ]
 
-        # Выбираем случайный цветок из списка
         emoji, name, count_func = random.choice(flower_types)
         amount = count_func()
 
-        # Добавляем в инвентарь
         user["lyk"][emoji] += amount
 
-        # Склонение для красивого вывода (опционально, можно усложнить, но пока просто так)
-        await message.reply(f"Ты походил по поляне и нашел {amount} {emoji} {name}!")
+        # --- КРЕАТИВНЫЕ ФРАЗЫ ПРИ НАХОДКЕ ---
+        success_phrases = [
+            f"<i>Разгребая густую траву, ты замечаешь что-то яркое... Ого, да это же...</i>\n\n🌾 {emoji} <b>{name}</b> (+{amount})\n\n<i>Они отправляются прямиком в лукошко!</i>",
+            f"<i>Ты долго бродил по поляне, слушая пение птиц, как вдруг у твоих ног блеснуло сокровище природы...</i>\n\n✨ {emoji} <b>{name}</b> в количестве <b>{amount} шт.</b>!\n\n<i>Отличная находка!</i>",
+            f"<i>Лёгкий ветерок донёс приятный аромат. Ты пошёл на запах и сорвал...</i>\n\n🍃 {emoji} <b>{name}</b> (x{amount})\n\n<i>Аккуратно убираем в корзинку.</i>",
+            f"<i>Споткнувшись о корень дерева, ты упал прямо в кусты. Зато нашёл...</i>\n\n🌿 {emoji} <b>{name}</b> (Собрано: {amount})\n\n<i>Нет худа без добра!</i>"
+        ]
+
+        text = (
+            "╭ 🌸 <b>ПРОГУЛКА ПО ПОЛЯНЕ</b>\n"
+            "│\n"
+            f"╰ {random.choice(success_phrases)}"
+        )
+
+        await message.reply(text, parse_mode=ParseMode.HTML)
     else:
-        await message.reply("Ты погулял по поляне, но ничего не нашел.")
+        # --- КРЕАТИВНЫЕ ФРАЗЫ ПРИ НЕУДАЧЕ ---
+        fail_phrases = [
+            "<i>Ты обошел всю поляну, но нашел только старый рваный башмак...</i>\nПопробуй поискать еще!",
+            "<i>Пчелы прогнали тебя с цветочной поляны!</i>\nПридется вернуться позже.",
+            "<i>Ты долго бродил, но все цветы кто-то собрал до тебя.</i>\nНе сдавайся, поищи еще!",
+            "<i>Ты увлекся погоней за красивой бабочкой и забыл, зачем пришел.</i>\nЛукошко осталось пустым."
+        ]
+
+        text = (
+            "╭ 🍂 <b>ПУСТО...</b>\n"
+            "│\n"
+            f"╰ {random.choice(fail_phrases)}"
+        )
+        await message.reply(text, parse_mode=ParseMode.HTML)
 
 
 @router.message(Command("plant"))
@@ -217,7 +232,16 @@ async def my_garden(message: Message):
     seeds = garden["seeds_planted"]
 
     if seeds == 0:
-        await message.reply("Твой сад\n\nПустой\n🟫🟫🟫🟫🟫🟫\n\nПосади семена командой /plant [кол-во]")
+        text = (
+            "🏡 <b>ТВОЙ САД</b> 🏡\n"
+            "━━━━━━━━━━━━━━━\n"
+            "<i>Ветер гуляет по пустой земле...</i>\n\n"
+            "🟫 🟫 🟫 🟫 🟫 🟫\n\n"
+            "🌱 <i>Здесь пока ничего не растёт.</i>\n"
+            "👉 Посади семена: <code>/plant [кол-во]</code>\n"
+            "━━━━━━━━━━━━━━━"
+        )
+        await message.reply(text, parse_mode=ParseMode.HTML)
         return
 
     grow_time_seconds = 25 * 60
@@ -226,18 +250,28 @@ async def my_garden(message: Message):
 
     time_elapsed = time.time() - garden["plant_timestamp"]
     is_ready = time_elapsed >= grow_time_seconds
-    watered_text = "Да" if garden["watered"] else "Нет"
+    watered_text = "💦 Да" if garden["watered"] else "🏜 Нет"
 
     plant_emoji = "🌹" if is_ready else "🌱"
-    visual_plants = plant_emoji * min(seeds, 6)
-    visual_ground = "🟫" * min(seeds, 6)
+    visual_plants = " ".join([plant_emoji] * min(seeds, 6))
+    visual_ground = " ".join(["🟫"] * min(seeds, 6))
 
     if not is_ready:
-        text = f"_Твой сад_\n\n{visual_plants}\n{visual_ground}\nСтатус: Рост\nПолито: {watered_text}"
+        status = "⏳ Набираются сил (Рост)"
     else:
-        text = f"_Твой сад_\n\n{visual_plants}\n{visual_ground}\nСтатус: Можно собирать. Жми: /collect_flowers\nПолито: {watered_text}"
+        status = "✨ Можно собирать! 👉 /collect_flowers"
 
-    await message.reply(text, parse_mode=ParseMode.MARKDOWN)
+    text = (
+        "🏡 <b>ТВОЙ САД</b> 🏡\n"
+        "━━━━━━━━━━━━━━━\n\n"
+        f"{visual_plants}\n"
+        f"{visual_ground}\n\n"
+        f"📈 <b>Статус:</b> {status}\n"
+        f"💧 <b>Полито:</b> {watered_text}\n"
+        "━━━━━━━━━━━━━━━"
+    )
+
+    await message.reply(text, parse_mode=ParseMode.HTML)
 
 
 @router.message(F.text.lower() == "полить клумбу")
