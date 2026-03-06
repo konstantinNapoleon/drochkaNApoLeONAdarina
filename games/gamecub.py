@@ -2,7 +2,7 @@ import html
 from aiogram import Router, F, types
 from aiogram.filters import Command
 from aiogram.types import FSInputFile  # <-- Добавили импорт для локальных файлов
-from config import GAME_ITEMS
+from items import GAME_ITEMS
 
 router = Router()
 
