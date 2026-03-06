@@ -166,7 +166,7 @@ async def show_lyk(message: Message):
 async def find_flowers_command(message: Message):
     user = get_user(message.from_user.id)
 
-    if random.random() <= 0.15:
+    if random.random() <= 0.5:
         hyacinth = random.randint(2, 4)
         hibiscus = random.randint(4, 6)
         seeds = random.randint(1, 3)
