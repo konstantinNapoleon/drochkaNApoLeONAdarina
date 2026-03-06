@@ -2,6 +2,7 @@ from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.filters import Command
 from items import GAME_ITEMS
+from aiogram import Router, F, types
 
 router = Router()
 
