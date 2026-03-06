@@ -11,4 +11,4 @@ config.py
 .venv/
 .idea/
 __pycache__/
-database.jsongit push -u origin main --force
+database.json

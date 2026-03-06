@@ -22,7 +22,7 @@ from handlers.id import router as id_router
 from handlers.vidacha import router as vidacha_router
 from inventory.inventar import router as inventar_router
 from tools.admin import router as admin_router
-
+from games.gamecub import router as gamecub_router
 from farm.topdrochek import router as topdrochek_router
 from tools.reklama import router as reklama_router
 from dataIT.bonuscode import router as bonuscode_router
@@ -130,7 +130,7 @@ async def main():
   # Обычно сначала подключают более специфичные, потом общие.
   dp.include_router(start_router)
   dp.include_router(droch_router)
-
+  dp.include_router(gamecub_router)
   dp.include_router(shop_router)
   dp.include_router(inventory_router) # Роутер инвентаря
   dp.include_router(oil_router)
