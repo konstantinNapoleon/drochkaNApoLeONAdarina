@@ -159,7 +159,7 @@ async def find_flowers_command(message: Message):
         flower_types = [
             ("🪻", "Гиацинт", lambda: random.randint(2, 4)),
             ("🌺", "Гибискус", lambda: random.randint(4, 6)),
-            ("🫘", "Семена для розы", lambda: random.randint(1, 3)),
+            ("🫘", "Семена для розы", lambda: random.randint(3, 6)),
             ("🌻", "Подсолнух", lambda: 1)
         ]
 
