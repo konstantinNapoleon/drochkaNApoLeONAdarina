@@ -1,9 +1,10 @@
 import time
 import random
-from aiogram import Router, types
+from aiogram import Router, types, F
 from aiogram.filters import Command
 
 router = Router()
+
 
 FARMCOIN_EMOJI = "💰"
 # Кулдаун 24 часа (24 часа * 60 мин * 60 сек)
