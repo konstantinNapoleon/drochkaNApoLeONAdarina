@@ -37,51 +37,54 @@ class TradeCallback(CallbackData, prefix="trade"):
 
 @router.message(F.text.lower().startswith("обмен"))
 async def cmd_trade_start(message: types.Message, get_user, save_db):
- if not message.reply_to_message:
-  return await message.reply("Нужно ответить реплаем на сообщение того, с кем хочешь обменяться!")
+    if not message.reply_to_message:
+        return await message.reply("Нужно ответить реплаем на сообщение того, с кем хочешь обменяться!")
 
- id_a = message.from_user.id
- id_b = message.reply_to_message.from_user.id
+    id_a = message.from_user.id
+    id_b = message.reply_to_message.from_user.id
 
- if id_a == id_b:
-  return await message.reply("❌ Нельзя меняться с самим собой!")
+    if id_a == id_b:
+        return await message.reply("❌ Нельзя меняться с самим собой!")
 
- pattern = r"обмен\s+(\S+)\s+(\d+)\s+(\S+)\s+(\d+)"
- match = re.search(pattern, message.text, re.IGNORECASE)
- if not match:
-  return await message.reply("❌ Формат: <code>обмен 💰 100 🔦 1</code>", parse_mode="HTML")
+    pattern = r"обмен\s+(\S+)\s+(\d+)\s+(\S+)\s+(\d+)"
+    match = re.search(pattern, message.text, re.IGNORECASE)
+    if not match:
+        return await message.reply("❌ Формат: <code>обмен 💰 100 🔦 1</code>", parse_mode="HTML")
 
- it1, c1, it2, c2 = match.groups()
- c1, c2 = int(c1), int(c2)
+    it1, c1, it2, c2 = match.groups()
+    c1, c2 = int(c1), int(c2)
 
- user_a = get_user(id_a, message.from_user.username)
- user_b = get_user(id_b, message.reply_to_message.from_user.username)
+    user_a = get_user(id_a, message.from_user.username)
+    user_b = get_user(id_b, message.reply_to_message.from_user.username)
 
- user_a['first_name'] = message.from_user.first_name
- user_b['first_name'] = message.reply_to_message.from_user.first_name
- save_db()
+    user_a['first_name'] = message.from_user.first_name
+    user_b['first_name'] = message.reply_to_message.from_user.first_name
 
- inv_a = get_inv_dict(user_a)
- inv_b = get_inv_dict(user_b)
+    # --- ИЗМЕНЕНИЕ ДЛЯ SQLITE 1 ---
+    save_db(id_a, user_a)
+    save_db(id_b, user_b)
 
- if inv_a.get(it1, 0) < c1 or inv_b.get(it2, 0) < c2:
-  return await message.reply("😭 Недостаточно предметов.")
+    inv_a = get_inv_dict(user_a)
+    inv_b = get_inv_dict(user_b)
 
- # Тут просто текст, БЕЗ ссылок
- name_a = html.escape(user_a["first_name"])
- name_b = html.escape(user_b["first_name"])
+    if inv_a.get(it1, 0) < c1 or inv_b.get(it2, 0) < c2:
+        return await message.reply("😭 Недостаточно предметов.")
 
- builder = InlineKeyboardBuilder()
- data = {"init_id": id_a, "target_id": id_b, "it1": it1, "c1": c1, "it2": it2, "c2": c2}
- builder.button(text="👌 Подтвердить", callback_data=TradeCallback(action="confirm1", **data))
- builder.button(text="Отмена 💔", callback_data=TradeCallback(action="cancel1", **data))
- builder.adjust(2)
+    # Тут просто текст, БЕЗ ссылок
+    name_a = html.escape(user_a["first_name"])
+    name_b = html.escape(user_b["first_name"])
 
- await message.reply(
-  f"Вы хотите передать {c1} {it1} в обмен на {c2} {it2}. Всё верно?",
-  reply_markup=builder.as_markup(),
-  parse_mode="HTML"
- )
+    builder = InlineKeyboardBuilder()
+    data = {"init_id": id_a, "target_id": id_b, "it1": it1, "c1": c1, "it2": it2, "c2": c2}
+    builder.button(text="👌 Подтвердить", callback_data=TradeCallback(action="confirm1", **data))
+    builder.button(text="Отмена 💔", callback_data=TradeCallback(action="cancel1", **data))
+    builder.adjust(2)
+
+    await message.reply(
+        f"Вы хотите передать {c1} {it1} в обмен на {c2} {it2}. Всё верно?",
+        reply_markup=builder.as_markup(),
+        parse_mode="HTML"
+    )
 
 
 @router.callback_query(TradeCallback.filter())
@@ -111,7 +114,7 @@ async def handle_trade_callbacks(callback: types.CallbackQuery, callback_data: T
         # ВОТ ТУТ ИМЕНА СТАНОВЯТСЯ ССЫЛКАМИ
         await callback.message.edit_text(
             f"<b>{link_target}</b>, пользователь <b>{link_init}</b> хочет передать "
-            f"{callback_data.c1} {callback_data.it1} в обмен твои {callback_data.c2} {callback_data.it2}. "
+            f"{callback_data.c1} {callback_data.it1} в обмен на твои {callback_data.c2} {callback_data.it2}. "
             f"Подтвердить обмен?",
             parse_mode="HTML",
             reply_markup=builder.as_markup()
@@ -136,11 +139,12 @@ async def handle_trade_callbacks(callback: types.CallbackQuery, callback_data: T
         if inv_a[callback_data.it1] <= 0: inv_a.pop(callback_data.it1, None)
         if inv_b[callback_data.it2] <= 0: inv_b.pop(callback_data.it2, None)
 
-        save_db()
+        # --- ИЗМЕНЕНИЕ ДЛЯ SQLITE 2 ---
+        save_db(callback_data.init_id, u_init)
+        save_db(callback_data.target_id, u_target)
 
         # В финальном сообщении ссылки тоже остаются
         await callback.message.edit_text(
-
             f"<b>{link_init}</b> {callback_data.c1} {callback_data.it1} 🔄 "
             f"{callback_data.c2} {callback_data.it2} <b>{link_target}</b>",
             parse_mode="HTML"

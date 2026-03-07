@@ -51,10 +51,11 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
     item_name = GAME_ITEMS[item_emoji].get("name", "Неизвестный предмет")
 
     # === Логика траты предмета (если нужно, чтобы он исчезал) ===
+    # Если ты раскомментируешь эти строки, то предмет будет тратиться
     # inv_dict[item_emoji] -= 1
     # if inv_dict[item_emoji] <= 0:
     #   del inv_dict[item_emoji]
-    # save_db()
+    # save_db(message.from_user.id, user) # <--- ВОТ ТУТ ГЛАВНОЕ ИЗМЕНЕНИЕ ДЛЯ SQLITE
 
     # 1. Получаем текст ответа (или стандартный, если его нет в словаре)
     response_text = USE_RESPONSES.get(item_emoji, f"✅ Вы успешно использовали <b>{html.escape(item_name)}</b>.")

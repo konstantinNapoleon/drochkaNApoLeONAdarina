@@ -1,6 +1,6 @@
-# handlers/inventory.py
 import html
 import math
+import datetime
 from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -14,15 +14,18 @@ ITEMS_PER_PAGE = 15
 FARMCOIN_EMOJI = "💰"
 
 
-# --- ИСПРАВЛЕННАЯ ФУНКЦИЯ: Теперь работает со словарем ---
+# --- ИСПРАВЛЕННАЯ ФУНКЦИЯ: Теперь работает со словарем и конвертирует старые данные ---
 def ensure_inv_dict(user) -> dict:
     inv = user.get("inventory")
-    # Если инвентарь — список (старая база) или его нет, переводим в словарь
     if not isinstance(inv, dict):
-        # Если там был список, можно его сконвертировать, но проще очистить для перехода на новую систему
-        inv = {}
-        user["inventory"] = inv
-    return inv
+        if isinstance(inv, list):
+            new_inv = {}
+            for item in inv:
+                new_inv[item] = new_inv.get(item, 0) + 1
+            user["inventory"] = new_inv
+        else:
+            user["inventory"] = {}
+    return user["inventory"]
 
 
 def get_inventory_data(user_inventory: dict):
@@ -31,11 +34,9 @@ def get_inventory_data(user_inventory: dict):
     for item_emoji, count in user_inventory.items():
         if count <= 0: continue
 
-        # Получаем инфо о предмете из GAME_ITEMS
         item_info = GAME_ITEMS.get(item_emoji, {"name": "Неизвестный предмет"})
         item_name = item_info.get("name", "Неизвестный предмет")
 
-        # Не выводим ФармКоин в общем списке, так как он идет отдельной строкой в заголовке
         if item_emoji == FARMCOIN_EMOJI:
             continue
 
@@ -64,11 +65,9 @@ async def cmd_inventory_grid(message: types.Message, get_user):
     user = get_user(message.from_user.id)
     inv_dict = ensure_inv_dict(user)
 
-    # Получаем количество монет напрямую из словаря
     farmcoin_count = inv_dict.get(FARMCOIN_EMOJI, 0)
     formatted_items = get_inventory_data(inv_dict)
 
-    # Если и монет 0, и предметов нет
     if not formatted_items and farmcoin_count <= 0:
         await message.answer("🎒 <b>Твой инвентарь пуст!</b>", parse_mode="HTML")
         return
@@ -80,8 +79,8 @@ async def cmd_inventory_grid(message: types.Message, get_user):
     name = html.escape(message.from_user.first_name or "Игрок")
 
     response = (
-        f"Твой инвентарь 👌 {name}\n\n"
-        f"{FARMCOIN_EMOJI} ФармКоин: <b>{farmcoin_count}</b>\n"
+        f"🎒 Твой инвентарь, <b>{name}</b>\n\n"
+        f"{FARMCOIN_EMOJI} ФармКоин: <b>{farmcoin_count:,}</b>\n\n"
         f"{inventory_render}"
     )
 
@@ -90,7 +89,6 @@ async def cmd_inventory_grid(message: types.Message, get_user):
         parse_mode="HTML",
         reply_markup=create_inventory_kb(0, total_pages)
     )
-
 
 @router.callback_query(F.data.startswith("inv_page_"))
 async def process_inventory_page(callback: types.CallbackQuery, get_user):
@@ -111,8 +109,8 @@ async def process_inventory_page(callback: types.CallbackQuery, get_user):
     name = html.escape(callback.from_user.first_name or "Игрок")
 
     response = (
-        f"Твой инвентарь 👌 {name}\n"
-        f"{FARMCOIN_EMOJI} ФармКоин: <b>{farmcoin_count}</b>\n\n"
+        f"🎒 Твой инвентарь, <b>{name}</b>\n\n"
+        f"{FARMCOIN_EMOJI} ФармКоин: <b>{farmcoin_count:,}</b>\n\n"
         f"{inventory_render}"
     )
 
@@ -131,19 +129,12 @@ async def process_close_inventory(callback: types.CallbackQuery):
     await callback.message.delete()
 
 
-
-
-import datetime
-
-
-
 # --- НАСТРОЙКИ КОДОВ ---
-# Можно добавлять сколько угодно кодов с разными наградами
 BONUS_CODES = {
   "GLOBAL": {
     "rewards": {
-      "💰": 5000, # Монеты
-      "🍬": 10,  # Флаг Польши
+      "💰": 5000,
+      "🍬": 10,
       "🎂": 7,
       "💫": 4,
       "🍺": 20,
@@ -155,10 +146,9 @@ BONUS_CODES = {
   },
   "LEGEND": {
     "rewards": {
-      "🍺": 10,
-      "🇦🇱": 1
+      "🏳️‍⚧️": 1,
     },
-    "limit": 10,
+    "limit": 1,
     "used_count": 0,
     "expires": datetime.datetime(2027, 12, 31),
     "claimed_by": set()
@@ -193,32 +183,24 @@ async def process_bonus(message: types.Message, command: CommandObject, get_user
     if user_id in bonus["claimed_by"]:
         return await message.reply("🤨 Ты уже активировал этот бонус-код!")
 
-    # --- ПРОЦЕСС ВЫДАЧИ НЕСКОЛЬКИХ ПРЕДМЕТОВ ---
-
     user = get_user(user_id, message.from_user.username)
     inv = ensure_inv_dict(user)
 
-    # Получаем словарь наград
     rewards = bonus.get("rewards", {})
-    reward_list_text = []  # Для красивого сообщения
+    reward_list_text = []
 
     for item_emoji, amount in rewards.items():
-        # 1. Добавляем в инвентарь
         inv[item_emoji] = inv.get(item_emoji, 0) + amount
-
-        # 2. Формируем строку для сообщения
         item_info = GAME_ITEMS.get(item_emoji, {})
         item_name = item_info.get("name", "предмет")
         reward_list_text.append(f"• {item_emoji} <b>{item_name}</b> — {amount} шт.")
 
-    # Обновляем статистику кода
     bonus["used_count"] += 1
     bonus["claimed_by"].add(user_id)
 
-    # Сохраняем изменения
-    save_db()
+    # --- SQLITE FIX ---
+    save_db(user_id, user)
 
-    # Собираем финальный текст
     rewards_str = "\n".join(reward_list_text)
     await message.reply(
         f"✅ <b>Успешно активировано!</b>\n\n"

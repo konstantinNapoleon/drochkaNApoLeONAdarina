@@ -51,10 +51,10 @@ async def process_droch(message: types.Message, get_user, save_db):
 
     chat_stats["masturbations_count"] += 1
     chat_stats["last_droch_time"] = current_time
-    user["balance"] += 1
-    save_db()
 
-    name = html.escape(message.from_user.first_name)
+    # ИСПРАВЛЕННОЕ СОХРАНЕНИЕ ДЛЯ SQLITE (без наград)
+    save_db(message.from_user.id, user)
+
     await message.reply(
         f"Ты успешно вздрочнул! 😼\n"
         f"На твоем счету <b>{chat_stats['masturbations_count']}</b> вздрочки.",
@@ -79,16 +79,12 @@ async def use_spray(message: types.Message, get_user, save_db):
     user = get_user(message.from_user.id, message.from_user.username)
     chat_id = str(message.chat.id)
 
-    # Работаем с инвентарем-словарем
     inv = ensure_inv_dict(user)
-
-    # Проверяем наличие спрея (количество > 0)
     spray_count = inv.get("💦", 0)
 
     if spray_count <= 0:
         return await message.reply("У тебя нет Спрея для хуя! Купи его в магазине. 🛒")
 
-    # Проверяем, нужен ли спрей (есть ли кулдаун)
     if "chats_data" not in user:
         user["chats_data"] = {}
     if chat_id not in user["chats_data"]:
@@ -100,13 +96,12 @@ async def use_spray(message: types.Message, get_user, save_db):
     last_time = chat_stats.get("last_droch_time", 0)
 
     if (current_time - last_time) < COOLDOWN:
-        # ПРИМЕНЯЕМ СПРЕЙ: вычитаем 1 из словаря
         inv["💦"] = spray_count - 1
-
-        # Сбрасываем таймер
         chat_stats["last_droch_time"] = 0
 
-        save_db()
+        # ИСПРАВЛЕННОЕ СОХРАНЕНИЕ ДЛЯ SQLITE
+        save_db(message.from_user.id, user)
+
         await message.reply(
             "Ты применил <b>спрей для хуя</b> и можешь подрочить ещё раз! 🌼",
             parse_mode="HTML"

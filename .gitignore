@@ -11,4 +11,4 @@ config.py
 .venv/
 .idea/
 __pycache__/
-database.json
+database.json.bak

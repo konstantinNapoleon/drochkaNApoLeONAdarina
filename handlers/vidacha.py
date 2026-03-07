@@ -47,7 +47,8 @@ async def give_money(message: types.Message, get_user, save_db):
     # Плюсуем число, а не плодим эмодзи списком
     inv[FARMCOIN_EMOJI] = inv.get(FARMCOIN_EMOJI, 0) + amount
 
-    save_db()
+    # --- ИЗМЕНЕНИЕ ДЛЯ SQLITE ---
+    save_db(target_id, target_user)
 
     await message.answer(
         f"✅ Успешно!\n\n"

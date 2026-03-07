@@ -88,7 +88,11 @@ async def cmd_give_item(message: types.Message, get_user, save_db, command: Comm
   if sender_inv[item_emoji] <= 0:
     del sender_inv[item_emoji]
 
-  save_db() # Обязательно сохраняем!
+  # --- ИЗМЕНЕНИЕ ДЛЯ SQLITE ---
+  # В этой команде меняются ДВА пользователя: отправитель и получатель!
+  # Поэтому нужно сохранить каждого по отдельности.
+  save_db(message.from_user.id, sender_user)
+  save_db(target_user_id, target_user)
 
   item_name = GAME_ITEMS[item_emoji].get("name", "предмет")
   target_name = html.escape(message.reply_to_message.from_user.first_name if message.reply_to_message else f"ID {target_user_id}")

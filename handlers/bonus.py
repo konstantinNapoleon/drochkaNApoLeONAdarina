@@ -5,9 +5,8 @@ from aiogram.filters import Command
 
 router = Router()
 
-
 FARMCOIN_EMOJI = "💰"
-# Кулдаун 24 часа (24 часа * 60 мин * 60 сек)
+# Кулдаун 24 часа
 BONUS_COOLDOWN_SEC = 24 * 60 * 60
 
 
@@ -16,7 +15,6 @@ def ensure_inv_dict(user) -> dict:
     inv = user.get("inventory")
     if not isinstance(inv, dict):
         if isinstance(inv, list):
-            # Конвертируем старый список в новый словарь
             new_inv = {}
             for item in inv:
                 new_inv[item] = new_inv.get(item, 0) + 1
@@ -28,7 +26,7 @@ def ensure_inv_dict(user) -> dict:
 
 @router.message(Command("bonus", "daily", "ежедневный", "dailybonus"))
 async def daily_bonus(message: types.Message, get_user, save_db):
-    user = get_user(message.from_user.id)
+    user = get_user(message.from_user.id, message.from_user.username)
 
     now = int(time.time())
     last = int(user.get("last_bonus_time", 0) or 0)
@@ -50,11 +48,12 @@ async def daily_bonus(message: types.Message, get_user, save_db):
     # Получаем инвентарь-словарь
     inv = ensure_inv_dict(user)
 
-    # Плюсуем монеты как число
+    # Плюсуем монеты в инвентарь
     inv[FARMCOIN_EMOJI] = inv.get(FARMCOIN_EMOJI, 0) + bonus_amount
-
     user["last_bonus_time"] = now
-    save_db()
+
+    # --- SQLITE FIX: Передаем ID и объект пользователя ---
+    save_db(message.from_user.id, user)
 
     await message.answer(
         f"🎁 Ежедневный бонус: <b>+{bonus_amount}</b> {FARMCOIN_EMOJI}\n"

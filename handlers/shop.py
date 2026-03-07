@@ -162,7 +162,9 @@ async def buy_confirmed(callback: types.CallbackQuery, get_user, save_db):
 
     # Выдаем товар
     add_item_to_inv(user, item_emoji, amount)
-    save_db()
+
+    # --- ИЗМЕНЕНИЕ ДЛЯ SQLITE ---
+    save_db(callback.from_user.id, user)
 
     await callback.message.edit_text(f"✅ Ты купил {amount} {item_emoji} за {total_price:,} 💰!")
     await callback.answer()

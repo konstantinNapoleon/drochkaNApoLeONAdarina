@@ -1,0 +1,23 @@
+{
+    "5006326062": {
+        "inventory": {
+            "💰": 100
+        },
+        "lyk": {
+            "🪻": 0,
+            "🌺": 0,
+            "🫘": 0,
+            "🌻": 0,
+            "🌹": 0,
+            "🌷": 0,
+            "💧": 5
+        },
+        "garden": {
+            "seeds_planted": 0,
+            "plant_timestamp": 0,
+            "watered": false
+        },
+        "achievements": [],
+        "used_promos": []
+    }
+}
