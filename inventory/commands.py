@@ -68,4 +68,7 @@ async def cmd_inventory_grid(message: types.Message, get_user, save_db):
     await message.answer(response, parse_mode="HTML")
 
 
+ #dfff
+
+
 
