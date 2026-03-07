@@ -18,21 +18,21 @@ GAME_ITEMS = {
   "⚽": {
     "name": "Футбольный мяч",
     "description": "Символ любви к спорту.",
-    "price": 0,
+    "price": -1,
     "emoji": "⚽"
   },
 
   "👑": {
     "name": "Корона: Для Реферального Короля",
     "description": "Символ любви к спорту.",
-    "price": 0,
+    "price": -1,
     "emoji": "👑"
   },
 
   "🏳️‍⚧️": {
     "name": "Флаг Miside",
     "description": "Символ любви к спорту.",
-    "price": 0,
+    "price": -1,
     "emoji": "🏳️‍⚧️"
   },
 
