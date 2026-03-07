@@ -28,6 +28,7 @@ from tools.reklama import router as reklama_router
 from dataIT.bonuscode import router as bonuscode_router
 from handlers.bafus import router as bafus_router
 
+
 # --- НАСТРОЙКИ БОТА ---
 TOKEN = os.getenv("BOT_TOKEN")
 
