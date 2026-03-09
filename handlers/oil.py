@@ -1,9 +1,7 @@
 import time
 import random
-from datetime import datetime
 from aiogram import Router, F, types
-from aiogram.filters import Command
-from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 router = Router()
@@ -21,31 +19,38 @@ OIL_PLACES = {
     3: {"name": "🏗 | Нефтяная вышка на Тихом океане", "min": 70, "max": 100, "xp": 50, "price": 5000, "req_lvl": 80}
 }
 
-# Вспомогательная функция для инвентаря
-def ensure_inv_dict(user) -> dict:
-    inv = user.get("inventory")
-    if not isinstance(inv, dict):
-        if isinstance(inv, list):
-            new_inv = {}
-            for item in inv:
-                new_inv[item] = new_inv.get(item, 0) + 1
-            user["inventory"] = new_inv
+
+# --- СИСТЕМА ОПЫТА ---
+def add_xp(user: dict, amount: int):
+    user['xp'] = user.get('xp', 0) + amount
+    user['level'] = user.get('level', 1)
+    leveled_up = 0
+    while True:
+        xp_needed = user['level'] * 10
+        if user['xp'] >= xp_needed:
+            user['xp'] -= xp_needed
+            user['level'] += 1
+            leveled_up += 1
         else:
-            user["inventory"] = {}
-    return user["inventory"]
+            break
+    next_need = user['level'] * 10
+    return leveled_up, next_need
+
 
 # --- КОМАНДА "МОЯ НЕФТЕБАЗА" ---
 @router.message(F.text.lower() == "моя нефтебаза")
 async def my_oil_base(message: types.Message, get_user):
-    user = get_user(message.from_user.id)
+    user = await get_user(message.from_user.id, message.from_user.username)
 
     place_id = user.get('oil_place_id', 0)
     place_name = OIL_PLACES.get(place_id, {"name": "Старая скважина"})['name']
-
     level = user.get('level', 1)
     oil = user.get('oil', 0)
 
-    inv = ensure_inv_dict(user)
+    inv = user.get("inventory", {})
+    if not isinstance(inv, dict):
+        inv = {}
+
     has_flashlight = inv.get(FLASH_LIGHT, 0) > 0
     flashlight_status = "Есть ✅" if has_flashlight else "Нет ⛔️"
 
@@ -73,32 +78,13 @@ async def close_base_menu(call: types.CallbackQuery):
     await call.message.delete()
 
 
-# --- СИСТЕМА ОПЫТА ---
-def add_xp(user: dict, amount: int):
-    user['xp'] = user.get('xp', 0) + amount
-    user['level'] = user.get('level', 1)
-
-    leveled_up = 0
-    while True:
-        xp_needed = user['level'] * 10
-        if user['xp'] >= xp_needed:
-            user['xp'] -= xp_needed
-            user['level'] += 1
-            leveled_up += 1
-        else:
-            break
-
-    next_need = user['level'] * 10
-    return leveled_up, next_need
-
-
+# --- ДОБЫЧА НЕФТИ ---
 @router.message(F.text.lower() == "добыть нефть")
 async def mine_oil(message: types.Message, get_user, save_db):
-    user = get_user(message.from_user.id)
-    inv = ensure_inv_dict(user)
+    user = await get_user(message.from_user.id, message.from_user.username)
+    inv = user.get("inventory", {})
     now = time.time()
 
-    # --- 1. ПРОВЕРКА ШТРАФА ---
     ban_until = user.get('oil_ban_until', 0)
     if ban_until > now:
         rem = int(ban_until - now)
@@ -107,32 +93,33 @@ async def mine_oil(message: types.Message, get_user, save_db):
         builder = InlineKeyboardBuilder()
         if inv.get(LICENSE_EMOJI, 0) > 0:
             builder.row(types.InlineKeyboardButton(text="📋 Применить защиту прав", callback_data="use_oil_license"))
-
         return await message.answer(
             f"🚫 <b>Госс инспекция наложила штраф!</b>\n"
             f"Тебе запрещено добывать нефть еще: <b>{days}д. {hours}ч.</b>\n\n"
-            f"Используй 📋 защиту прав из инвентаря.",
+            f"Используй 📋 защиту прав из инвентаря, чтобы снять арест. Жми: /use_oil_license",
             reply_markup=builder.as_markup() if inv.get(LICENSE_EMOJI, 0) > 0 else None,
             parse_mode="HTML"
         )
 
-    # --- 2. СОБЫТИЕ: ШАНС НА ШТРАФ ---
     if random.random() < 0.05:
         user['oil_ban_until'] = now + 172800
-        save_db(message.from_user.id, user) # ИСПРАВЛЕНО СОХРАНЕНИЕ
-        return await message.reply("Ты хотел добыть нефть, но пришла госс инспекция и наложила штраф на 2 дня.")
+        await save_db(message.from_user.id, user)
+        builder = InlineKeyboardBuilder()
+        if inv.get(LICENSE_EMOJI, 0) > 0:
+            builder.row(types.InlineKeyboardButton(text="📋 Применить защиту прав", callback_data="use_oil_license"))
+        return await message.reply(
+            "Ты хотел добыть нефть, но пришла госс инспекция и наложила штраф. Ты не можешь добывать нефть 2 дня.",
+            reply_markup=builder.as_markup() if inv.get(LICENSE_EMOJI, 0) > 0 else None
+        )
 
-    # --- 3. ПРОВЕРКА КУЛДАУНА ---
-    cooldown = 7200 # 2 часа
+    cooldown = 1
     time_passed = now - user.get('last_oil_mine', 0)
     if time_passed < cooldown:
         rem = int(cooldown - time_passed)
         return await message.answer(f"⏳ Скважина пуста. Приходи через {rem // 3600} ч. {(rem % 3600) // 60} мин.")
 
-    # --- 4. ЛОГИКА ДОБЫЧИ ---
     place_id = user.get('oil_place_id', 0)
     place = OIL_PLACES.get(place_id, OIL_PLACES[0])
-
     base_liters = random.randint(place["min"], place["max"])
     total_liters = base_liters
     bonus_text = ""
@@ -143,15 +130,13 @@ async def mine_oil(message: types.Message, get_user, save_db):
         bonus_text = f"\n{FLASH_LIGHT} Ты посветил фонариком и добыл еще <b>{bonus}</b> л."
 
     xp_gain = place.get('xp', 5)
-    leveled_up, next_need = add_xp(user, xp_gain)
-
+    leveled_up, _ = add_xp(user, xp_gain)
     user['oil'] = user.get('oil', 0) + total_liters
     user['last_oil_mine'] = now
 
-    save_db(message.from_user.id, user) # ИСПРАВЛЕНО СОХРАНЕНИЕ
+    await save_db(message.from_user.id, user)
 
     lvl_up_msg = f"\n\n⬆️ <b>LEVEL UP!</b> Ты достиг <b>{user['level']}</b> уровня! 🎉" if leveled_up > 0 else ""
-
     text = (
         f"📍 <b>{place['name']}</b>\n\n"
         f"⬛ Ты добыл: <b>+{base_liters}</b> л. нефти\n"
@@ -166,64 +151,63 @@ async def mine_oil(message: types.Message, get_user, save_db):
 
 @router.callback_query(F.data == "use_oil_license")
 async def use_oil_license_callback(callback: types.CallbackQuery, get_user, save_db):
-  user = get_user(callback.from_user.id)
-  inv = ensure_inv_dict(user)
-  now = time.time()
+    user = await get_user(callback.from_user.id, callback.from_user.username)
+    inv = user.get("inventory", {})
+    now = time.time()
 
-  if user.get('oil_ban_until', 0) <= now:
-    return await callback.answer("✅ У тебя нет активных штрафов!", show_alert=True)
+    if user.get('oil_ban_until', 0) <= now:
+        return await callback.answer("✅ У тебя нет активных штрафов!", show_alert=True)
+    if inv.get(LICENSE_EMOJI, 0) <= 0:
+        return await callback.answer("❌ У тебя нет предмета 📋 Защита прав!", show_alert=True)
 
-  if inv.get(LICENSE_EMOJI, 0) <= 0:
-    return await callback.answer("❌ У тебя нет предмета 📋 Защита прав!", show_alert=True)
+    inv[LICENSE_EMOJI] -= 1
+    user["oil_ban_until"] = 0
+    await save_db(callback.from_user.id, user)
 
-  inv[LICENSE_EMOJI] -= 1
-  user["oil_ban_until"] = 0
-  save_db(callback.from_user.id, user) # ИСПРАВЛЕНО СОХРАНЕНИЕ
-
-  await callback.message.edit_text(
-    "✅ Ты предъявил госс инспекции 📋 <b>Защиту прав</b>!\nШтраф аннулирован.",
-    parse_mode="HTML"
-  )
-  await callback.answer("Штраф снят!")
+    await callback.message.edit_text("✅ Ты предъявил госс инспекции 📋 <b>Защиту прав</b>!\nШтраф аннулирован.",
+                                     parse_mode="HTML")
+    await callback.answer("Штраф снят!")
 
 
 @router.message(F.text.lower().startswith("приобрести нефтеместо"))
 async def handle_oil_places(message: types.Message, get_user, save_db):
-    user = get_user(message.from_user.id)
+    user = await get_user(message.from_user.id, message.from_user.username)
     text_parts = message.text.split()
 
     if len(text_parts) <= 2:
-        text = "<b>🛒 Доступные нефтеместа:</b>\n\n"
+        text = "<b>🛒 Доступные нефтеместа для покупки:</b>\n\n"
         for i, p in OIL_PLACES.items():
             if i == 0: continue
             status = "✅ Куплено" if user.get('oil_place_id', 0) >= i else f"💰 Цена: {p['price']} л."
-            text += (f"{i}. <b>{p['name']}</b>\n"
-                     f" 🎖 Нужен lvl: {p['req_lvl']}\n"
-                     f" 🏷 {status}\n\n")
-        return await message.reply(text, parse_mode="HTML")
+            text += f"{i}. <b>{p['name']}</b>\n 🎖 Уровень: {p['req_lvl']}\n 🏷 {status}\n\n"
+        text += "<i>Напиши: Приобрести нефтеместо [номер]</i>"
+        builder = InlineKeyboardBuilder()
+        builder.add(InlineKeyboardButton(text="❌ Закрыть", callback_data="close_menu"))
+        return await message.reply(text, parse_mode="HTML", reply_markup=builder.as_markup())
 
     try:
         place_num = int(text_parts[-1])
         place = OIL_PLACES[place_num]
     except:
-        return await message.reply("❌ Ошибка в номере места.")
+        return await message.reply("❌ Укажи корректный номер места.")
 
     if user.get('level', 1) < place['req_lvl'] or user.get('oil', 0) < place['price']:
-        return await message.reply("❌ Недостаточно уровня или нефти.")
+        return await message.reply("❌ Недостаточно уровня или нефти!")
+
+    if user.get('oil_place_id', 0) >= place_num:
+        return await message.reply("❌ Это нефтеместо уже приобретено.")
 
     user['oil'] -= place['price']
     user['oil_place_id'] = place_num
-    save_db(message.from_user.id, user) # ИСПРАВЛЕНО СОХРАНЕНИЕ
-
-    await message.reply(f"💳 <b>Покупка совершена!</b>\nМесто: <b>{place['name']}</b>", parse_mode="HTML")
+    await save_db(message.from_user.id, user)
+    await message.reply(f"💳 <b>Покупка совершена!</b>\nТеперь твое место: <b>{place['name']}</b>", parse_mode="HTML")
 
 
 @router.message(F.text.lower().startswith("продать нефть"))
 async def cmd_sell_oil(message: types.Message, get_user, save_db):
-    user = get_user(message.from_user.id)
-    inv = ensure_inv_dict(user)
+    user = await get_user(message.from_user.id, message.from_user.username)
+    inv = user.get("inventory", {})
     parts = message.text.split()
-
     try:
         amount = int(parts[-1])
         if amount <= 0: raise ValueError
@@ -231,14 +215,20 @@ async def cmd_sell_oil(message: types.Message, get_user, save_db):
         return await message.answer("⚠️ Укажи количество: <code>продать нефть 10</code>", parse_mode="HTML")
 
     if user.get("oil", 0) < amount:
-        return await message.answer(f"❌ Недостаточно нефти (есть: {user.get('oil', 0)} л.)")
+        return await message.answer(f"❌ Недостаточно нефти (есть {user.get('oil', 0)} л.)")
 
     income = amount * OIL_PRICE
     user["oil"] -= amount
     inv[FARMCOIN_EMOJI] = inv.get(FARMCOIN_EMOJI, 0) + income
 
-    save_db(message.from_user.id, user) # ИСПРАВЛЕНО СОХРАНЕНИЕ
-    await message.answer(f"✅ Продано <b>{amount}</b> л. нефти за <b>{income}</b> {FARMCOIN_EMOJI}", parse_mode="HTML")
+    await save_db(message.from_user.id, user)
+    await message.answer(f"✅ Ты продал <b>{amount}</b> л. нефти за <b>{income}</b> {FARMCOIN_EMOJI}", parse_mode="HTML")
+
+
+@router.callback_query(F.data == "close_menu")
+async def close_menu(call: types.CallbackQuery):
+    await call.message.delete()
+
 
 
 

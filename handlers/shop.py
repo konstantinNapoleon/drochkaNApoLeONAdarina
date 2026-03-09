@@ -118,21 +118,36 @@ async def close_shop(callback: types.CallbackQuery):
 @router.message(F.text.lower().startswith("купить"))
 async def process_buy_command(message: types.Message):
     parts = message.text.split()
-    if len(parts) < 3:
-        return await message.answer("⚠️ Формат: <code>купить 🍃 50</code>", parse_mode="HTML")
+
+    # Если написали просто "купить" без ничего
+    if len(parts) < 2:
+        return await message.answer("⚠️ Формат: <code>купить 🍃</code> или <code>купить 🍃 50</code>", parse_mode="HTML")
 
     item_emoji = parts[1]
-    try:
-        amount = int(parts[2])
-    except:
-        return await message.answer("⚠️ Количество должно быть числом.")
 
-    if amount <= 0: return await message.answer("⚠️ Минимум 1 шт.")
+    # Логика определения количества:
+    # Если есть третье слово — берем его как число, если нет — ставим 1
+    amount = 1
+    if len(parts) >= 3:
+        try:
+            amount = int(parts[2])
+        except ValueError:
+            return await message.answer("⚠️ Количество должно быть числом.")
+
+    if amount <= 0:
+        return await message.answer("⚠️ Минимум 1 шт.")
+
     if item_emoji not in GAME_ITEMS:
         return await message.answer("❌ Такого предмета нет в магазине.")
 
     item_info = GAME_ITEMS[item_emoji]
-    total_price = item_info.get("price", 0) * amount
+    price = item_info.get("price", 0)
+
+    # Проверка на бесплатные/непродающиеся предметы
+    if price <= 0:
+        return await message.answer("❌ Этот предмет не продается.")
+
+    total_price = price * amount
 
     builder = InlineKeyboardBuilder()
     builder.row(
@@ -151,25 +166,20 @@ async def buy_confirmed(callback: types.CallbackQuery, get_user, save_db):
     _, item_emoji, amount = callback.data.split(":")
     amount = int(amount)
 
-    user = get_user(callback.from_user.id)
+    user = await get_user(callback.from_user.id, callback.from_user.username)
     item_info = GAME_ITEMS.get(item_emoji)
-    total_price = item_info.get("price", 0) * amount
 
-    # Списываем монеты
+    if not item_info or item_info.get("price", 0) <= 0:
+        return await callback.answer("❌ Этот предмет больше не продается.", show_alert=True)
+
+    total_price = item_info.get("price") * amount
+
     if not spend_farmcoins(user, total_price):
         have = get_farmcoins(user)
         return await callback.answer(f"❌ Не хватает {total_price - have:,} 💰", show_alert=True)
 
-    # Выдаем товар
     add_item_to_inv(user, item_emoji, amount)
-
-    # --- ИЗМЕНЕНИЕ ДЛЯ SQLITE ---
-    save_db(callback.from_user.id, user)
+    await save_db(callback.from_user.id, user)
 
     await callback.message.edit_text(f"✅ Ты купил {amount} {item_emoji} за {total_price:,} 💰!")
     await callback.answer()
-
-
-@router.callback_query(F.data == "buy_cancel")
-async def buy_cancel(callback: types.CallbackQuery):
-    await callback.message.edit_text("❌ Покупка отменена.")

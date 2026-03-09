@@ -1,101 +1,126 @@
 from aiogram import Router, types
-from aiogram.filters import CommandStart, Command, CommandObject
+from aiogram.filters import Command, CommandObject
 from aiogram.utils.deep_linking import create_start_link
-from items import GAME_ITEMS  # Импортируем твои предметы
+from items import GAME_ITEMS
 
 router = Router()
 
-# Настраиваем награды (монеты и предмет для короля)
-REWARD_COINS = 1000  # Сколько ФармКоинов давать за приглашение
-FARMCOIN_EMOJI = "💰"  # Эмодзи валюты (как в твоем инвентаре)
-REFERRALS_FOR_KING = 20  # Количество рефералов для статуса "Король"
+# Настройки
+REWARD_COINS = 1000
+FARMCOIN_EMOJI = "💰"
+REFERRALS_FOR_KING = 20
+CROWN_EMOJI = "👑"
 
-# Берем эмодзи из GAME_ITEMS (если ключа нет, ставим 👑 по умолчанию)
-KING_ITEM_EMOJI = GAME_ITEMS.get("👑", {}).get("emoji", "👑")
+
+# --- ДОБАВЬ ЭТОТ ТЕКСТ В НАЧАЛО ФАЙЛА ---
+WELCOME_TEXT = (
+  "👋 Добро пожаловать в @droch_bot\n\n"
+  "🔥 Заходи каждый день — получай бонусы. По команде /dailybonus@droch_bot\n\n"
+  "🔥 Участвуй в ивентах — забирай эксклюзивы.\n\n"
+  "📰 А так же у нас есть канал с новостями где ты можешь получить бонус коды для прокачки своего аккаунта: https://t.me/droch_information\n\n"
+  "🤔 Хочешь обменяться валютой с другим участником бота? Отличное решение! Для этого у нас есть официальный чат: https://t.me/official_chat_droch"
+)
 
 
 def ensure_inv_dict(user) -> dict:
     inv = user.get("inventory")
     if not isinstance(inv, dict):
-        inv = {}
-        user["inventory"] = inv
-    return inv
+        if isinstance(inv, list):
+            new_inv = {}
+            for item in inv:
+                new_inv[item] = new_inv.get(item, 0) + 1
+            user["inventory"] = new_inv
+        else:
+            user["inventory"] = {}
+    return user["inventory"]
 
 
 @router.message(Command("start"))
 async def cmd_start(message: types.Message, command: CommandObject, get_user, save_db):
     user_id = message.from_user.id
-    user = get_user(user_id)
+    # Получаем данные пользователя из базы
+    user = await get_user(user_id, message.from_user.username)
     args = command.args
 
-    # Проверка, новый ли юзер
+    # --- ПРОВЕРКА: ЕСЛИ ПОЛЬЗОВАТЕЛЬ УЖЕ ЕСТЬ В БОТЕ ---
     if user.get("registered"):
-        return await message.answer("С возвращением!")
+        # Если он уже был в боте, реф-ссылка игнорируется
+        # Мы просто отправляем ему приветственный текст и выходим из функции
+        return await message.answer(WELCOME_TEXT, disable_web_page_preview=True)
 
+    # --- ЛОГИКА ДЛЯ НОВОГО ПОЛЬЗОВАТЕЛЯ (РЕГИСТРАЦИЯ) ---
     user["registered"] = True
-    save_db()
+    ref_msg = ""
 
-    # Если есть код пригласившего
+    # Проверяем, пришел ли он по реферальной ссылке
     if args and args.isdigit():
         inviter_id = int(args)
 
-        if inviter_id == user_id:
-            await message.answer("Добро пожаловать! (Нельзя переходить по своей же ссылке)")
-        else:
-            inviter = get_user(inviter_id)
-            inviter_inv = ensure_inv_dict(inviter)
+        # Не даем приглашать самого себя
+        if inviter_id != user_id:
+            inviter = await get_user(inviter_id)
 
-            # 1. Начисляем ФармКоины прямо в ИНВЕНТАРЬ
-            current_coins = inviter_inv.get(FARMCOIN_EMOJI, 0)
-            inviter_inv[FARMCOIN_EMOJI] = current_coins + REWARD_COINS
+            # Если пригласитель существует в базе
+            if inviter:
+                # Начисляем монеты пригласителю
+                inv_dict = ensure_inv_dict(inviter)
+                inv_dict[FARMCOIN_EMOJI] = inv_dict.get(FARMCOIN_EMOJI, 0) + REWARD_COINS
+                inviter["referral_count"] = inviter.get("referral_count", 0) + 1
 
-            # 2. Увеличиваем счетчик рефералов
-            inviter["referral_count"] = inviter.get("referral_count", 0) + 1
-            current_refs = inviter["referral_count"]
+                # Проверка на достижение лимита для Короны
+                custom_msg = ""
+                if inviter.get("referral_count", 0) >= REFERRALS_FOR_KING and not inviter.get("king_reward_claimed"):
+                    inv_dict[CROWN_EMOJI] = inv_dict.get(CROWN_EMOJI, 0) + 1
+                    inviter["king_reward_claimed"] = True
+                    inviter["custom_role"] = "👑 Реферальный король"
+                    custom_msg = f"\n\n👑 <b>УРА!</b> Ты пригласил {REFERRALS_FOR_KING} друзей и получил <b>Корону ({CROWN_EMOJI})</b>!"
 
-            # 3. Выдаем предмет-корону за 20 рефов
-            custom_msg = ""
-            if current_refs == REFERRALS_FOR_KING:
-                # Даем 1 корону в инвентарь, используя эмодзи из GAME_ITEMS
-                current_crowns = inviter_inv.get(KING_ITEM_EMOJI, 0)
-                inviter_inv[KING_ITEM_EMOJI] = current_crowns + 1
+                # Сохраняем данные пригласителя
+                await save_db(inviter_id, inviter)
+                ref_msg = "🎉 Вы зарегистрировались по ссылке друга!\n\n"
 
-                inviter["custom_role"] = "👑 Реферальный король"  # Оставляем и текстовую роль на всякий случай
-                custom_msg = f"\n\n👑 <b>Поздравляем!</b> Ты пригласил {REFERRALS_FOR_KING} друзей! В твой инвентарь добавлен уникальный предмет <b>Корона Короля ({KING_ITEM_EMOJI})</b>!"
+                # Уведомляем пригласителя
+                try:
+                    await message.bot.send_message(
+                        inviter_id,
+                        f"🔔 Новый реферал! Зачислено: <b>{REWARD_COINS} {FARMCOIN_EMOJI}</b>.{custom_msg}",
+                        parse_mode="HTML"
+                    )
+                except:
+                    pass
 
-            save_db()
+    # Сохраняем нового пользователя как "зарегистрированного"
+    await save_db(user_id, user)
 
-            await message.answer("Вы успешно зарегистрировались по ссылке друга!")
-
-            # Пишем пригласившему
-            try:
-                await message.bot.send_message(
-                    inviter_id,
-                    f"🎉 По твоей ссылке зарегистрировался новый друг! В твой инвентарь добавлено <b>{REWARD_COINS} {FARMCOIN_EMOJI}</b>.{custom_msg}",
-                    parse_mode="HTML"
-                )
-            except Exception:
-                pass
-    else:
-        await message.answer("Добро пожаловать в бота!")
+    # Отправляем финальный текст
+    await message.answer(f"{ref_msg}{WELCOME_TEXT}", disable_web_page_preview=True)
 
 
 @router.message(Command("ref"))
-async def cmd_ref(message: types.Message, get_user):
-    user = get_user(message.from_user.id)
+async def cmd_ref(message: types.Message, get_user, save_db):
+    user = await get_user(message.from_user.id, message.from_user.username)
     ref_count = user.get("referral_count", 0)
 
-    link = await create_start_link(message.bot, str(message.from_user.id), encode=False)
+    # --- ПРОВЕРКА НА ВЫДАЧУ КОРОНЫ ПРЯМО ЗДЕСЬ ---
+    if ref_count >= REFERRALS_FOR_KING and not user.get("king_reward_claimed"):
+        inv = ensure_inv_dict(user)
+        inv[CROWN_EMOJI] = inv.get(CROWN_EMOJI, 0) + 1
+        user["king_reward_claimed"] = True
+        user["custom_role"] = "👑 Реферальный король"
+        await save_db(message.from_user.id, user)
+        await message.answer(
+            f"🎊 <b>Поздравляем!</b> Ты уже пригласил {ref_count} друзей, поэтому мы выдали тебе <b>Корону ({CROWN_EMOJI})</b> прямо сейчас!",
+            parse_mode="HTML")
 
+    link = await create_start_link(message.bot, str(message.from_user.id), encode=False)
     text = (
-        f"🔗 <b>Твоя реферальная ссылка:</b>\n"
-        f"<code>{link}</code>\n\n"
-        f"💰 За каждого приглашенного друга ты получишь <b>{REWARD_COINS} {FARMCOIN_EMOJI}</b> прямо в инвентарь.\n"
-        f"👥 Приглашено друзей: <b>{ref_count}</b>\n\n"
-        f"🎁 <b>Бонус:</b> Пригласи {REFERRALS_FOR_KING} друзей, чтобы получить предмет <b>{KING_ITEM_EMOJI}</b> в инвентарь!"
+        f"🔗 <b>Твоя реферальная ссылка:</b>\n<code>{link}</code>\n\n"
+        f"💰 Награда: <b>{REWARD_COINS} {FARMCOIN_EMOJI}</b> за друга.\n"
+        f"👥 Приглашено: <b>{ref_count}</b>\n\n"
+        f"🎁 <b>Цель:</b> {REFERRALS_FOR_KING} друзей для получения <b>Короны ({CROWN_EMOJI})</b>."
     )
 
-    if ref_count >= REFERRALS_FOR_KING:
-        text += f"\n\n👑 Статус короля получен! Предмет <b>{KING_ITEM_EMOJI}</b> уже в инвентаре."
+    if user.get("king_reward_claimed"):
+        text += f"\n\n👑 <b>Статус:</b> Реферальный король. Предмет в инвентаре!"
 
     await message.answer(text, parse_mode="HTML")

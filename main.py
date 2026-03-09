@@ -27,6 +27,7 @@ from farm.topdrochek import router as topdrochek_router
 from tools.reklama import router as reklama_router
 from dataIT.bonuscode import router as bonuscode_router
 from handlers.bafus import router as bafus_router
+from inventory.useitem import router as useitem_router
 
 
 # --- НАСТРОЙКИ БОТА ---
@@ -62,7 +63,7 @@ def init_db():
     logger.info(f"База данных '{DB_FILE}' инициализирована.")
 
 
-def get_user(user_id, username=None):
+async def get_user(user_id, username=None):
     """
   Получает данные пользователя из SQLite.
   Возвращает словарь (dict), точно так же, как было раньше при JSON.
@@ -99,7 +100,7 @@ def get_user(user_id, username=None):
     return user_data
 
 
-def save_db(user_id=None, user_data=None):
+async def save_db(user_id=None, user_data=None):
     """
   Сохраняет данные конкретного пользователя в SQLite.
 
@@ -127,7 +128,7 @@ def save_db(user_id=None, user_data=None):
     conn.close()
 
 
-def get_all_users():
+async def get_all_users():
     """
   Возвращает всех пользователей в виде словаря {user_id: user_data}.
   Нужно для топов и админ-команд.
@@ -175,6 +176,7 @@ async def main():
     dp.include_router(reklama_router)
     dp.include_router(bonuscode_router)
     dp.include_router(bafus_router)
+    dp.include_router(useitem_router)
 
     await bot.delete_webhook(drop_pending_updates=True)
     logger.info("🚀 БОТ ЗАПУЩЕН!")
