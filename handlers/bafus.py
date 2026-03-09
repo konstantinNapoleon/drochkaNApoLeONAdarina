@@ -1,7 +1,7 @@
 from aiogram import Router, types, F
 from aiogram.filters import Command
 
-achievements_router = Router()
+router = Router()
 
 # Список всех существующих ачивок в боте
 ACHIEVEMENTS_LIST = {
