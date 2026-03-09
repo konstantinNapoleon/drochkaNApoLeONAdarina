@@ -1,7 +1,7 @@
 import time
 from aiogram import types, F, Router
 from aiogram.filters import Command
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.utils.keyboard import InlineKeyboardBuilder  # Добавлено
 
 router = Router()
 
@@ -19,12 +19,14 @@ def ensure_inv_dict(user) -> dict:
     return user["inventory"]
 
 
-# --- ОБНОВЛЕННАЯ ФУНКЦИЯ КНОПКИ ---
-def get_spray_kb(count: int):
+# --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ КНОПКИ ---
+def get_spray_markup(spray_count: int):
+    if spray_count <= 0:
+        return None
     builder = InlineKeyboardBuilder()
-    builder.row(types.InlineKeyboardButton(
-        text=f"💦 Применить спрей ({count})",
-        callback_data="apply_spray_inline")
+    builder.button(
+        text=f"💦 Применить спрей ({spray_count})",
+        callback_data="use_spray_callback"
     )
     return builder.as_markup()
 
@@ -32,18 +34,15 @@ def get_spray_kb(count: int):
 async def process_droch(message: types.Message, get_user, save_db):
     user = await get_user(message.from_user.id, message.from_user.username)
     chat_id = str(message.chat.id)
+
+    # Считаем количество спреев для кнопки
     inv = ensure_inv_dict(user)
-    spray_count = inv.get("💦", 0)  # Получаем количество
+    spray_count = inv.get("💦", 0)
 
     if "chats_data" not in user:
         user["chats_data"] = {}
-
     if chat_id not in user["chats_data"]:
-        user["chats_data"][chat_id] = {
-            "masturbations_count": 0,
-            "last_droch_time": 0,
-            "chat_name": ""
-        }
+        user["chats_data"][chat_id] = {"masturbations_count": 0, "last_droch_time": 0, "chat_name": ""}
 
     chat_stats = user["chats_data"][chat_id]
     chat_stats["chat_name"] = message.chat.title or "Личные сообщения"
@@ -53,7 +52,6 @@ async def process_droch(message: types.Message, get_user, save_db):
     last_time = chat_stats.get("last_droch_time", 0)
     time_passed = current_time - last_time
 
-    # Кулдаун с количеством в кнопке
     if time_passed < COOLDOWN:
         remaining_seconds = int(COOLDOWN - time_passed)
         minutes = remaining_seconds // 60
@@ -61,7 +59,7 @@ async def process_droch(message: types.Message, get_user, save_db):
         return await message.reply(
             f"Ты недавно дрочил! 🤕 \n"
             f"Приходи через <b>{minutes} мин. {seconds} сек.</b>",
-            reply_markup=get_spray_kb(spray_count),
+            reply_markup=get_spray_markup(spray_count),  # Добавлена кнопка
             parse_mode="HTML"
         )
 
@@ -70,35 +68,34 @@ async def process_droch(message: types.Message, get_user, save_db):
 
     if "achievements" not in user or not isinstance(user["achievements"], list):
         user["achievements"] = []
-
     if "first_droch" not in user["achievements"]:
         user["achievements"].append("first_droch")
         await message.answer("🎊 НОВОЕ ДОСТИЖЕНИЕ: ✊ Первая дрочка!\n└ Вы сделали это в первый раз!")
 
     await save_db(message.from_user.id, user)
 
-    # Успех с количеством в кнопке
     await message.reply(
         f"Ты успешно вздрочнул! 😼\n"
         f"На твоем счету <b>{chat_stats['masturbations_count']}</b> вздрочки.",
-        reply_markup=get_spray_kb(spray_count),
+        reply_markup=get_spray_markup(spray_count),  # Добавлена кнопка
         parse_mode="HTML"
     )
 
 
-@router.callback_query(F.data == "apply_spray_inline")
-async def callback_spray(callback: types.CallbackQuery, get_user, save_db):
+# --- ОБРАБОТЧИК НАЖАТИЯ НА КНОПКУ ---
+@router.callback_query(F.data == "use_spray_callback")
+async def callback_use_spray(callback: types.CallbackQuery, get_user, save_db):
     user = await get_user(callback.from_user.id, callback.from_user.username)
     chat_id = str(callback.message.chat.id)
     inv = ensure_inv_dict(user)
     spray_count = inv.get("💦", 0)
 
     if spray_count <= 0:
-        return await callback.answer("У тебя нет Спрея для хуя! Купи его в магазине. 🛒", show_alert=True)
+        return await callback.answer("У тебя нет Спреев для хуя!", show_alert=True)
 
     chat_stats = user.get("chats_data", {}).get(chat_id)
     if not chat_stats:
-        return await callback.answer("Ошибка данных чата!", show_alert=True)
+        return await callback.answer("Ошибка данных.")
 
     COOLDOWN = 1800
     current_time = time.time()
@@ -108,20 +105,38 @@ async def callback_spray(callback: types.CallbackQuery, get_user, save_db):
         inv["💦"] = spray_count - 1
         chat_stats["last_droch_time"] = 0
         await save_db(callback.from_user.id, user)
-
-        # Редактируем сообщение (кнопку убираем, так как спрей применен)
-        await callback.message.edit_text("Ты применил спрей для хуя. 👍 Жми: /drochnut", reply_markup=None)
+        # Редактируем сообщение согласно ТЗ
+        await callback.message.edit_text(
+            "Ты применил спрей для хуя. 👍 Жми: /drochnut",
+            reply_markup=None  # Убираем кнопку после использования
+        )
     else:
-        await callback.answer("Спрей тебе сейчас не нужен! 😝", show_alert=True)
-
-    await callback.answer()
+        await callback.answer("Спрей тебе сейчас не нужен!", show_alert=True)
 
 
 @router.message(Command("drochnut", "дрочнуть"))
 async def cmd_drochnut(message: types.Message, get_user, save_db):
-    await process_droch(message, get_user, save_db)
-
+  await process_droch(message, get_user, save_db)
 
 @router.message(F.text.lower().in_({"дрочнуть", "юз рука", "юз хуй"}))
 async def text_drochnut(message: types.Message, get_user, save_db):
-    await process_droch(message, get_user, save_db)
+  await process_droch(message, get_user, save_db)
+
+@router.message(F.text.lower() == "юз 💦")
+async def use_spray(message: types.Message, get_user, save_db):
+  user = await get_user(message.from_user.id, message.from_user.username)
+  chat_id = str(message.chat.id)
+  inv = ensure_inv_dict(user)
+  spray_count = inv.get("💦", 0)
+
+  if spray_count <= 0:
+    return await message.reply("У тебя нет Спрея для хуя! Купи его в магазине. 🛒")
+
+  chat_stats = user.get("chats_data", {}).get(chat_id, {"last_droch_time": 0})
+  if (time.time() - chat_stats["last_droch_time"]) < 1800:
+    inv["💦"] = spray_count - 1
+    chat_stats["last_droch_time"] = 0
+    await save_db(message.from_user.id, user)
+    await message.reply("Ты применил <b>спрей для хуя</b> и можешь подрочить ещё раз! 🌼 Жми: /drochnut", parse_mode="HTML")
+  else:
+    await message.reply("Спрей для хуя тебе сейчас ничем не поможет! 😝", parse_mode="HTML")

@@ -80,22 +80,5 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
     await message.answer_video(video=random_video)
 
 
-# --- ОБРАБОТЧИКИ КОМАНД ---
-
-@router.message(Command("use"))
-async def cmd_use(message: types.Message, get_user, save_db):
-  args = message.text.split(maxsplit=1)
-  if len(args) < 2:
-    return await message.reply("Укажи предмет. Пример: <code>/use ⚽</code>", parse_mode="HTML")
-
-  await process_item_use(message, args[1].strip(), get_user, save_db)
 
 
-@router.message(F.text.lower().startswith("юз "))
-async def text_use(message: types.Message, get_user, save_db):
-  # Обрезаем первые 3 символа ("юз ") и убираем лишние пробелы
-  item_emoji = message.text[3:].strip()
-  if not item_emoji:
-    return await message.reply("Укажи предмет. Пример: <code>юз ⚽</code>", parse_mode="HTML")
-
-  await process_item_use(message, item_emoji, get_user, save_db)
