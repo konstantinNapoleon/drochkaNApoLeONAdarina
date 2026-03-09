@@ -2,7 +2,7 @@ import json
 import sqlite3
 import os
 
-JSON_FILE = "database.json.bak"  # Твой старый файл
+JSON_FILE = "database.json"  # Твой старый файл
 SQLITE_FILE = "users_database.db" # Твой новый файл
 
 def migrate():
@@ -51,4 +51,3 @@ def migrate():
 
 if __name__ == "__main__":
     migrate()
-
