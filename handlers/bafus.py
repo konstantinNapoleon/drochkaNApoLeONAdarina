@@ -11,8 +11,8 @@ ACHIEVEMENTS_LIST = {
 }
 
 
-@achievements_router.message(Command("achievements"))
-@achievements_router.message(F.text.casefold() == "ачивки")
+@router.message(Command("achievements"))
+@router.message(F.text.casefold() == "ачивки")
 async def show_achievements(message: types.Message, get_user):
     user_data = await get_user(message.from_user.id, message.from_user.username)
 
