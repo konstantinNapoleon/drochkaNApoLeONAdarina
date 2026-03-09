@@ -112,7 +112,7 @@ async def mine_oil(message: types.Message, get_user, save_db):
             reply_markup=builder.as_markup() if inv.get(LICENSE_EMOJI, 0) > 0 else None
         )
 
-    cooldown = 1
+    cooldown = 7200
     time_passed = now - user.get('last_oil_mine', 0)
     if time_passed < cooldown:
         rem = int(cooldown - time_passed)
