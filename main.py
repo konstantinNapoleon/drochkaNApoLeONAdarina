@@ -34,7 +34,7 @@ from inventory.useitem import router as useitem_router
 TOKEN = os.getenv("BOT_TOKEN")
 
 # Имя файла базы данных SQLite
-DB_FILE = "/data/users_database.db"
+DB_FILE = "users_database.db"
 
 logging.basicConfig(
     level=logging.INFO,
