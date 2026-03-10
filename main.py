@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import json
-import sqlite3
+import psycopg2
 import os
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -32,9 +32,7 @@ from inventory.useitem import router as useitem_router
 
 # --- НАСТРОЙКИ БОТА ---
 TOKEN = os.getenv("BOT_TOKEN")
-
-# Имя файла базы данных SQLite
-DB_FILE = "users_database.db"
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -43,109 +41,108 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# --- ФУНКЦИИ ДЛЯ РАБОТЫ С БАЗОЙ ДАННЫХ (SQLite) ---
+# --- ФУНКЦИИ ДЛЯ РАБОТЫ С БАЗОЙ ДАННЫХ (PostgreSQL / Supabase) ---
+
+def get_db_connection():
+    """Создает подключение к облачной базе Supabase"""
+    return psycopg2.connect(DATABASE_URL, sslmode='require')
 
 def init_db():
-    """Создает таблицу в SQLite, если ее еще нет"""
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-
-    # Таблица users хранит все данные в формате JSON-строк для обратной совместимости
-    # с твоими остальными файлами (роутерами)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            user_id TEXT PRIMARY KEY,
-            data TEXT
-        )
-    """)
-    conn.commit()
-    conn.close()
-    logger.info(f"База данных '{DB_FILE}' инициализирована.")
-
+    """Создает таблицу в облаке, если ее еще нет"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                user_id TEXT PRIMARY KEY,
+                data TEXT
+            )
+        """)
+        conn.commit()
+        cursor.close()
+        conn.close()
+        logger.info("Облачная база данных успешно инициализирована.")
+    except Exception as e:
+        logger.error(f"Ошибка при инициализации базы данных: {e}")
 
 async def get_user(user_id, username=None):
-    """
-  Получает данные пользователя из SQLite.
-  Возвращает словарь (dict), точно так же, как было раньше при JSON.
-  """
+    """Получает данные пользователя из облака."""
     uid = str(user_id)
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-    cursor.execute("SELECT data FROM users WHERE user_id = ?", (uid,))
-    row = cursor.fetchone()
+        cursor.execute("SELECT data FROM users WHERE user_id = %s", (uid,))
+        row = cursor.fetchone()
 
-    if row:
-        user_data = json.loads(row[0])
-        # Если ник обновился
-        if username and user_data.get("username") != username:
-            user_data["username"] = username
-            # Сразу сохраняем обновление ника
-            cursor.execute("UPDATE users SET data = ? WHERE user_id = ?",
-                           (json.dumps(user_data, ensure_ascii=False), uid))
+        if row:
+            user_data = json.loads(row[0])
+            if username and user_data.get("username") != username:
+                user_data["username"] = username
+                cursor.execute("UPDATE users SET data = %s WHERE user_id = %s",
+                              (json.dumps(user_data, ensure_ascii=False), uid))
+                conn.commit()
+        else:
+            user_data = {
+                "balance": 0,
+                "inventory": [],
+                "masturbations_count": 0,
+                "username": username
+            }
+            cursor.execute("INSERT INTO users (user_id, data) VALUES (%s, %s)",
+                          (uid, json.dumps(user_data, ensure_ascii=False)))
             conn.commit()
-    else:
-        # Новый пользователь
-        user_data = {
-            "balance": 0,
-            "inventory": [],
-            "masturbations_count": 0,
-            "username": username
-        }
-        cursor.execute("INSERT INTO users (user_id, data) VALUES (?, ?)",
-                       (uid, json.dumps(user_data, ensure_ascii=False)))
-        conn.commit()
 
-    conn.close()
-    return user_data
-
+        cursor.close()
+        conn.close()
+        return user_data
+    except Exception as e:
+        logger.error(f"Ошибка в get_user: {e}")
+        return None
 
 async def save_db(user_id=None, user_data=None):
-    """
-  Сохраняет данные конкретного пользователя в SQLite.
-
-  ВАЖНО ДЛЯ ТВОИХ ФАЙЛОВ: Раньше функция save_db() сохраняла весь JSON целиком без аргументов.
-  Так как в разных твоих файлах (shop.py, droch.py) может вызываться просто save_db(),
-  эта функция оставлена для совместимости, но теперь она ничего не делает, если вызвана без аргументов.
-  Чтобы данные сохранялись, в других файлах нужно вызывать: save_db(user_id, user_data)
-  """
+    """Сохраняет данные конкретного пользователя в облако."""
     if user_id is None or user_data is None:
-        logger.warning(
-            "Вызвана функция save_db() без аргументов. В SQLite нужно передавать user_id и user_data. Если это старый код, он не сохранит данные!")
+        logger.warning("Вызвана функция save_db() без аргументов.")
         return
 
     uid = str(user_id)
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-    cursor.execute("""
-        INSERT INTO users (user_id, data) 
-        VALUES (?, ?) 
-        ON CONFLICT(user_id) DO UPDATE SET data = excluded.data
-    """, (uid, json.dumps(user_data, ensure_ascii=False)))
+        cursor.execute("""
+            INSERT INTO users (user_id, data) 
+            VALUES (%s, %s) 
+            ON CONFLICT(user_id) DO UPDATE SET data = EXCLUDED.data
+        """, (uid, json.dumps(user_data, ensure_ascii=False)))
 
-    conn.commit()
-    conn.close()
-
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Ошибка в save_db: {e}")
 
 async def get_all_users():
-    """
-  Возвращает всех пользователей в виде словаря {user_id: user_data}.
-  Нужно для топов и админ-команд.
-  """
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id, data FROM users")
-    rows = cursor.fetchall()
-    conn.close()
+    """Возвращает всех пользователей из облака."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT user_id, data FROM users")
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
 
-    all_users = {}
-    for row in rows:
-        uid = row[0]
-        data = json.loads(row[1])
-        all_users[uid] = data
+        all_users = {}
+        for row in rows:
+            uid = row[0]
+            data = json.loads(row[1])
+            all_users[uid] = data
 
-    return all_users
+        return all_users
+    except Exception as e:
+        logger.error(f"Ошибка в get_all_users: {e}")
+        return {}
 
 
 # --- ГЛАВНАЯ ФУНКЦИЯ ЗАПУСКА БОТА ---
@@ -156,6 +153,7 @@ async def main():
     bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
     dp = Dispatcher()
 
+    # Прокидываем функции в middleware/handlers
     dp["get_user"] = get_user
     dp["save_db"] = save_db
 
@@ -179,7 +177,7 @@ async def main():
     dp.include_router(useitem_router)
 
     await bot.delete_webhook(drop_pending_updates=True)
-    logger.info("🚀 БОТ ЗАПУЩЕН!")
+    logger.info("🚀 БОТ ЗАПУЩЕН НА ОБЛАЧНОЙ БАЗЕ (SUPABASE)!")
 
     await dp.start_polling(
         bot,
@@ -193,6 +191,6 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
-        logger.info("🛑 Бот остановлен вручную.")
+        logger.info("🛑 Бот остановлен.")
     except Exception as e:
-        logger.critical(f"Критическая ошибка при запуске бота: {e}", exc_info=True)
+        logger.critical(f"Критическая ошибка: {e}", exc_info=True)
