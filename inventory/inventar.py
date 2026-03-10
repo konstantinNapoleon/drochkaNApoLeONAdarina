@@ -121,7 +121,8 @@ BONUS_CODES = {
     "expires": datetime.datetime(2026, 5, 1),
     "claimed_by": set()
   },
-  "UKR": {
+
+  "UKRAINE": {
     "rewards": {"🇺🇦": 1},
     "limit": 100,
     "used_count": 0,
