@@ -25,7 +25,6 @@ from tools.admin import router as admin_router
 from games.gamecub import router as gamecub_router
 from farm.topdrochek import router as topdrochek_router
 from tools.reklama import router as reklama_router
-from dataIT.bonuscode import router as bonuscode_router
 from handlers.bafus import router as bafus_router
 from inventory.useitem import router as useitem_router
 from tools.refprog import router as refprog_router
@@ -172,7 +171,6 @@ async def main():
     dp.include_router(ferma_router)
     dp.include_router(topdrochek_router)
     dp.include_router(reklama_router)
-    dp.include_router(bonuscode_router)
     dp.include_router(bafus_router)
     dp.include_router(useitem_router)
     dp.include_router(refprog_router)
