@@ -10,9 +10,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- Импорты роутеров ---
-from handlers.start import router as start_router
+from handlers.referal import router as referal_router
 from handlers.droch import router as droch_router
-from handlers.ferma import router as ferma_router
+from handlers.trade import router as trade_router
 from handlers.shop import router as shop_router
 from inventory.commands import router as inventory_router
 from handlers.oil import router as oil_router
@@ -26,7 +26,7 @@ from games.gamecub import router as gamecub_router
 from farm.topdrochek import router as topdrochek_router
 from tools.reklama import router as reklama_router
 from handlers.bafus import router as bafus_router
-from inventory.useitem import router as useitem_router
+from inventory.xlame import router as xlame_router
 from tools.refprog import router as refprog_router
 
 # --- НАСТРОЙКИ БОТА ---
@@ -156,7 +156,7 @@ async def main():
     dp["get_user"] = get_user
     dp["save_db"] = save_db
 
-    dp.include_router(start_router)
+    dp.include_router(referal_router)
     dp.include_router(droch_router)
     dp.include_router(gamecub_router)
     dp.include_router(shop_router)
@@ -168,11 +168,11 @@ async def main():
     dp.include_router(vidacha_router)
     dp.include_router(inventar_router)
     dp.include_router(admin_router)
-    dp.include_router(ferma_router)
+    dp.include_router(trade_router)
     dp.include_router(topdrochek_router)
     dp.include_router(reklama_router)
     dp.include_router(bafus_router)
-    dp.include_router(useitem_router)
+    dp.include_router(xlame_router)
     dp.include_router(refprog_router)
 
     await bot.delete_webhook(drop_pending_updates=True)
