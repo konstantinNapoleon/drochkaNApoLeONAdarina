@@ -13,6 +13,7 @@ router = Router()
 ITEMS_PER_PAGE = 15
 FARMCOIN_EMOJI = "💰"
 
+
 # --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 
 def ensure_inv_dict(user) -> dict:
@@ -27,6 +28,7 @@ def ensure_inv_dict(user) -> dict:
             user["inventory"] = {}
     return user["inventory"]
 
+
 def get_inventory_data(user_inventory: dict):
     formatted_items = []
     for item_emoji, count in user_inventory.items():
@@ -39,18 +41,20 @@ def get_inventory_data(user_inventory: dict):
     formatted_items.sort()
     return formatted_items
 
-def create_inventory_kb(current_page: int, total_pages: int):
+
+def create_inventory_kb(current_page: int, total_pages: int, user_id: int):
     builder = InlineKeyboardBuilder()
     buttons = []
     if current_page > 0:
-        buttons.append(types.InlineKeyboardButton(text="⬅️", callback_data=f"inv_page_{current_page - 1}"))
+        buttons.append(types.InlineKeyboardButton(text="⬅️", callback_data=f"inv_page_{user_id}_{current_page - 1}"))
     buttons.append(types.InlineKeyboardButton(text=f"{current_page + 1}/{total_pages}", callback_data="none"))
     if current_page < total_pages - 1:
-        buttons.append(types.InlineKeyboardButton(text="➡️", callback_data=f"inv_page_{current_page + 1}"))
+        buttons.append(types.InlineKeyboardButton(text="➡️", callback_data=f"inv_page_{user_id}_{current_page + 1}"))
 
     builder.row(*buttons)
-    builder.row(types.InlineKeyboardButton(text="❌ Закрыть", callback_data="inv_close"))
+    builder.row(types.InlineKeyboardButton(text="❌ Закрыть", callback_data=f"inv_close_{user_id}"))
     return builder.as_markup()
+
 
 # --- ХЕНДЛЕРЫ ИНВЕНТАРЯ ---
 
@@ -76,11 +80,19 @@ async def cmd_inventory_grid(message: types.Message, get_user):
         f"{inventory_render}"
     )
 
-    await message.answer(response, parse_mode="HTML", reply_markup=create_inventory_kb(0, total_pages))
+    await message.answer(response, parse_mode="HTML",
+                         reply_markup=create_inventory_kb(0, total_pages, message.from_user.id))
+
 
 @router.callback_query(F.data.startswith("inv_page_"))
 async def process_inventory_page(callback: types.CallbackQuery, get_user):
-    page = int(callback.data.split("_")[2])
+    parts = callback.data.split("_")
+    owner_id = int(parts[2])
+    page = int(parts[3])
+
+    if callback.from_user.id != owner_id:
+        return await callback.answer("Это не твой инвентарь!", show_alert=True)
+
     # ДОБАВЛЕН await
     user = await get_user(callback.from_user.id, callback.from_user.username)
     inv_dict = ensure_inv_dict(user)
@@ -103,12 +115,20 @@ async def process_inventory_page(callback: types.CallbackQuery, get_user):
     )
 
     try:
-        await callback.message.edit_text(response, parse_mode="HTML", reply_markup=create_inventory_kb(page, total_pages))
+        await callback.message.edit_text(response, parse_mode="HTML",
+                                         reply_markup=create_inventory_kb(page, total_pages, owner_id))
     except Exception:
         await callback.answer()
 
-@router.callback_query(F.data == "inv_close")
+
+@router.callback_query(F.data.startswith("inv_close_"))
 async def process_close_inventory(callback: types.CallbackQuery):
+    parts = callback.data.split("_")
+    owner_id = int(parts[2])
+
+    if callback.from_user.id != owner_id:
+        return await callback.answer("Ты не можешь закрыть чужой инвентарь!", show_alert=True)
+
     await callback.message.delete()
 
 # --- БОНУС-КОДЫ ---

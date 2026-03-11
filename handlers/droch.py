@@ -20,13 +20,13 @@ def ensure_inv_dict(user) -> dict:
 
 
 # --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ КНОПКИ ---
-def get_spray_markup(spray_count: int):
+def get_spray_markup(spray_count: int, user_id: int):
     if spray_count <= 0:
         return None
     builder = InlineKeyboardBuilder()
     builder.button(
         text=f"💦 Применить спрей ({spray_count})",
-        callback_data="use_spray_callback"
+        callback_data=f"use_spray_callback:{user_id}"
     )
     return builder.as_markup()
 
@@ -59,7 +59,7 @@ async def process_droch(message: types.Message, get_user, save_db):
         return await message.reply(
             f"Ты недавно дрочил! 🤕 \n"
             f"Приходи через <b>{minutes} мин. {seconds} сек.</b>",
-            reply_markup=get_spray_markup(spray_count),  # Добавлена кнопка
+            reply_markup=get_spray_markup(spray_count, message.from_user.id),  # Добавлена кнопка
             parse_mode="HTML"
         )
 
@@ -77,14 +77,19 @@ async def process_droch(message: types.Message, get_user, save_db):
     await message.reply(
         f"Ты успешно вздрочнул! 😼\n"
         f"На твоем счету <b>{chat_stats['masturbations_count']}</b> вздрочки.",
-        reply_markup=get_spray_markup(spray_count),  # Добавлена кнопка
+        reply_markup=get_spray_markup(spray_count, message.from_user.id),  # Добавлена кнопка
         parse_mode="HTML"
     )
 
 
 # --- ОБРАБОТЧИК НАЖАТИЯ НА КНОПКУ ---
-@router.callback_query(F.data == "use_spray_callback")
+@router.callback_query(F.data.startswith("use_spray_callback:"))
 async def callback_use_spray(callback: types.CallbackQuery, get_user, save_db):
+    _, owner_id = callback.data.split(":")
+
+    if callback.from_user.id != int(owner_id):
+        return await callback.answer("Это не твой спрей!", show_alert=True)
+
     user = await get_user(callback.from_user.id, callback.from_user.username)
     chat_id = str(callback.message.chat.id)
     inv = ensure_inv_dict(user)
@@ -116,27 +121,30 @@ async def callback_use_spray(callback: types.CallbackQuery, get_user, save_db):
 
 @router.message(Command("drochnut", "дрочнуть"))
 async def cmd_drochnut(message: types.Message, get_user, save_db):
-  await process_droch(message, get_user, save_db)
+    await process_droch(message, get_user, save_db)
+
 
 @router.message(F.text.lower().in_({"дрочнуть", "юз рука", "юз хуй"}))
 async def text_drochnut(message: types.Message, get_user, save_db):
-  await process_droch(message, get_user, save_db)
+    await process_droch(message, get_user, save_db)
+
 
 @router.message(F.text.lower() == "юз 💦")
 async def use_spray(message: types.Message, get_user, save_db):
-  user = await get_user(message.from_user.id, message.from_user.username)
-  chat_id = str(message.chat.id)
-  inv = ensure_inv_dict(user)
-  spray_count = inv.get("💦", 0)
+    user = await get_user(message.from_user.id, message.from_user.username)
+    chat_id = str(message.chat.id)
+    inv = ensure_inv_dict(user)
+    spray_count = inv.get("💦", 0)
 
-  if spray_count <= 0:
-    return await message.reply("У тебя нет Спрея для хуя! Купи его в магазине. 🛒")
+    if spray_count <= 0:
+        return await message.reply("У тебя нет Спрея для хуя! Купи его в магазине. 🛒")
 
-  chat_stats = user.get("chats_data", {}).get(chat_id, {"last_droch_time": 0})
-  if (time.time() - chat_stats["last_droch_time"]) < 1800:
-    inv["💦"] = spray_count - 1
-    chat_stats["last_droch_time"] = 0
-    await save_db(message.from_user.id, user)
-    await message.reply("Ты применил <b>спрей для хуя</b> и можешь подрочить ещё раз! 🌼 Жми: /drochnut", parse_mode="HTML")
-  else:
-    await message.reply("Спрей для хуя тебе сейчас ничем не поможет! 😝", parse_mode="HTML")
+    chat_stats = user.get("chats_data", {}).get(chat_id, {"last_droch_time": 0})
+    if (time.time() - chat_stats["last_droch_time"]) < 1800:
+        inv["💦"] = spray_count - 1
+        chat_stats["last_droch_time"] = 0
+        await save_db(message.from_user.id, user)
+        await message.reply("Ты применил <b>спрей для хуя</b> и можешь подрочить ещё раз! 🌼 Жми: /drochnut",
+                            parse_mode="HTML")
+    else:
+        await message.reply("Спрей для хуя тебе сейчас ничем не поможет! 😝", parse_mode="HTML")

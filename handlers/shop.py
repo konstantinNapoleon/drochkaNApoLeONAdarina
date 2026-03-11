@@ -54,7 +54,7 @@ def add_item_to_inv(user, item_emoji: str, amount: int):
 
 # --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (Магазин) ---
 
-def get_shop_page(page: int = 0):
+def get_shop_page(user_id: int, page: int = 0):
     sellable_items = [(k, v) for k, v in GAME_ITEMS.items() if v.get("price", 0) > 0]
     total_pages = math.ceil(len(sellable_items) / ITEMS_PER_PAGE)
 
@@ -80,14 +80,14 @@ def get_shop_page(page: int = 0):
 
     builder = InlineKeyboardBuilder()
     nav_buttons = [
-        types.InlineKeyboardButton(text="⏮", callback_data="shop_page:0"),
-        types.InlineKeyboardButton(text="⬅️", callback_data=f"shop_page:{page - 1 if page > 0 else 0}"),
+        types.InlineKeyboardButton(text="⏮", callback_data=f"shop_page:{user_id}:0"),
+        types.InlineKeyboardButton(text="⬅️", callback_data=f"shop_page:{user_id}:{page - 1 if page > 0 else 0}"),
         types.InlineKeyboardButton(text="➡️",
-                                   callback_data=f"shop_page:{page + 1 if page < total_pages - 1 else total_pages - 1}"),
-        types.InlineKeyboardButton(text="⏭", callback_data=f"shop_page:{total_pages - 1}")
+                                   callback_data=f"shop_page:{user_id}:{page + 1 if page < total_pages - 1 else total_pages - 1}"),
+        types.InlineKeyboardButton(text="⏭", callback_data=f"shop_page:{user_id}:{total_pages - 1}")
     ]
     builder.row(*nav_buttons)
-    builder.row(types.InlineKeyboardButton(text="❌ Скрыть", callback_data="close_shop"))
+    builder.row(types.InlineKeyboardButton(text="❌ Скрыть", callback_data=f"close_shop:{user_id}"))
     return text, builder.as_markup()
 
 
@@ -95,14 +95,19 @@ def get_shop_page(page: int = 0):
 
 @router.message(Command("shop"))
 async def cmd_shop(message: types.Message):
-    text, kb = get_shop_page(0)
+    text, kb = get_shop_page(message.from_user.id, 0)
     await message.answer(text, reply_markup=kb, parse_mode="HTML")
 
 
 @router.callback_query(F.data.startswith("shop_page:"))
 async def process_shop_pagination(callback: types.CallbackQuery):
-    page_idx = int(callback.data.split(":")[1])
-    text, kb = get_shop_page(page_idx)
+    _, owner_id, page_idx = callback.data.split(":")
+
+    if callback.from_user.id != int(owner_id):
+        return await callback.answer("Это не ваш магазин! Напишите /shop.", show_alert=True)
+
+    page_idx = int(page_idx)
+    text, kb = get_shop_page(int(owner_id), page_idx)
     try:
         await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
     except:
@@ -110,8 +115,13 @@ async def process_shop_pagination(callback: types.CallbackQuery):
     await callback.answer()
 
 
-@router.callback_query(F.data == "close_shop")
+@router.callback_query(F.data.startswith("close_shop:"))
 async def close_shop(callback: types.CallbackQuery):
+    _, owner_id = callback.data.split(":")
+
+    if callback.from_user.id != int(owner_id):
+        return await callback.answer("Вы не можете закрыть чужой магазин!", show_alert=True)
+
     await callback.message.delete()
 
 
@@ -151,8 +161,9 @@ async def process_buy_command(message: types.Message):
 
     builder = InlineKeyboardBuilder()
     builder.row(
-        types.InlineKeyboardButton(text="Подтвердить ✅", callback_data=f"buy_confirm:{item_emoji}:{amount}"),
-        types.InlineKeyboardButton(text="Отменить ⛔️", callback_data="buy_cancel")
+        types.InlineKeyboardButton(text="Подтвердить ✅",
+                                   callback_data=f"buy_confirm:{message.from_user.id}:{item_emoji}:{amount}"),
+        types.InlineKeyboardButton(text="Отменить ⛔️", callback_data=f"buy_cancel:{message.from_user.id}")
     )
 
     await message.reply(
@@ -163,7 +174,11 @@ async def process_buy_command(message: types.Message):
 
 @router.callback_query(F.data.startswith("buy_confirm:"))
 async def buy_confirmed(callback: types.CallbackQuery, get_user, save_db):
-    _, item_emoji, amount = callback.data.split(":")
+    _, owner_id, item_emoji, amount = callback.data.split(":")
+
+    if callback.from_user.id != int(owner_id):
+        return await callback.answer("Это не ваша покупка!", show_alert=True)
+
     amount = int(amount)
 
     user = await get_user(callback.from_user.id, callback.from_user.username)
@@ -182,4 +197,15 @@ async def buy_confirmed(callback: types.CallbackQuery, get_user, save_db):
     await save_db(callback.from_user.id, user)
 
     await callback.message.edit_text(f"✅ Ты купил {amount} {item_emoji} за {total_price:,} 💰!")
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("buy_cancel:"))
+async def buy_canceled(callback: types.CallbackQuery):
+    _, owner_id = callback.data.split(":")
+
+    if callback.from_user.id != int(owner_id):
+        return await callback.answer("Вы не можете отменить чужую покупку!", show_alert=True)
+
+    await callback.message.edit_text("❌ Покупка отменена.")
     await callback.answer()

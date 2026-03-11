@@ -41,7 +41,6 @@ def get_grid_text(user_achievements):
     )
 
 
-
 # --- 1. ВЫЗОВ МЕНЮ АЧИВОК (С автовыдачей старым игрокам) ---
 @router.message(Command("achievements"))
 @router.message(F.text.casefold() == "ачивки")
@@ -61,15 +60,20 @@ async def show_achievements(message: types.Message, get_user, save_db):
     text = f"<b>Ачивки</b> 🌼\n\n{grid_text}\n\n🏆 Открыто: {unlocked_count}/{len(ACHIEVEMENTS_LIST)}"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="➡️", callback_data="achievements_page_list")]
+        [InlineKeyboardButton(text="➡️", callback_data=f"achievements_page_list:{message.from_user.id}")]
     ])
 
     await message.reply(text, parse_mode="HTML", reply_markup=kb)
 
 
 # --- 2. ПОКАЗ СПИСКА АЧИВОК (КНОПКА ➡️) ---
-@router.callback_query(F.data == "achievements_page_list")
+@router.callback_query(F.data.startswith("achievements_page_list:"))
 async def process_achievements_list(callback: types.CallbackQuery, get_user):
+    _, owner_id = callback.data.split(":")
+
+    if callback.from_user.id != int(owner_id):
+        return await callback.answer("Это не твои ачивки!", show_alert=True)
+
     user = await get_user(callback.from_user.id, callback.from_user.username)
     user_achievements = user.get("achievements", [])
 
@@ -84,14 +88,20 @@ async def process_achievements_list(callback: types.CallbackQuery, get_user):
             text += f"[{info['slot']}] {info['emoji']} <b>{info['name']}</b>\n└ {info['desc']}\n\n"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅️", callback_data="achievements_page_grid")]
+        [InlineKeyboardButton(text="⬅️", callback_data=f"achievements_page_grid:{owner_id}")]
     ])
 
     await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
 
+
 # --- 3. ВОЗВРАТ К СЕТКЕ (КНОПКА ⬅️) ---
-@router.callback_query(F.data == "achievements_page_grid")
+@router.callback_query(F.data.startswith("achievements_page_grid:"))
 async def process_achievements_back(callback: types.CallbackQuery, get_user):
+    _, owner_id = callback.data.split(":")
+
+    if callback.from_user.id != int(owner_id):
+        return await callback.answer("Это не твои ачивки!", show_alert=True)
+
     user = await get_user(callback.from_user.id, callback.from_user.username)
     user_achievements = user.get("achievements", [])
 
@@ -101,7 +111,7 @@ async def process_achievements_back(callback: types.CallbackQuery, get_user):
     text = f"<b>Ачивки</b> 🌼\n\n{grid_text}\n\n🏆 Открыто: {unlocked_count}/{len(ACHIEVEMENTS_LIST)}"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="➡️", callback_data="achievements_page_list")]
+        [InlineKeyboardButton(text="➡️", callback_data=f"achievements_page_list:{owner_id}")]
     ])
 
     await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
