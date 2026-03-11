@@ -1,9 +1,24 @@
-import time
 from aiogram import types, F, Router
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder  # Добавлено
 
 router = Router()
+
+import time
+from aiogram import Router, types, F
+from aiogram.filters import Command
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from datetime import datetime, timezone, timedelta
+
+router = Router()
+
+# Часовой пояс МСК (UTC+3), чтобы день сбрасывался правильно по московскому времени
+MSK_TZ = timezone(timedelta(hours=3))
+
+
+def get_current_date_str():
+    """Возвращает текущую дату в формате YYYY-MM-DD по МСК"""
+    return datetime.now(MSK_TZ).strftime("%Y-%m-%d")
 
 
 def ensure_inv_dict(user) -> dict:
@@ -59,12 +74,22 @@ async def process_droch(message: types.Message, get_user, save_db):
         return await message.reply(
             f"Ты недавно дрочил! 🤕 \n"
             f"Приходи через <b>{minutes} мин. {seconds} сек.</b>",
-            reply_markup=get_spray_markup(spray_count, message.from_user.id),  # Добавлена кнопка
+            reply_markup=get_spray_markup(spray_count, message.from_user.id),
             parse_mode="HTML"
         )
 
+    # --- ОБНОВЛЕНИЕ СТАТИСТИКИ ЗА ВСЕ ВРЕМЯ ---
     chat_stats["masturbations_count"] += 1
     chat_stats["last_droch_time"] = current_time
+
+    # --- ОБНОВЛЕНИЕ СТАТИСТИКИ ЗА СЕГОДНЯ ---
+    if "daily_stats" not in user:
+        user["daily_stats"] = {}
+
+    current_date = get_current_date_str()
+    current_daily = user["daily_stats"].get(current_date, 0)
+    user["daily_stats"][current_date] = current_daily + 1
+    # ----------------------------------------
 
     if "achievements" not in user or not isinstance(user["achievements"], list):
         user["achievements"] = []
@@ -77,12 +102,12 @@ async def process_droch(message: types.Message, get_user, save_db):
     await message.reply(
         f"Ты успешно вздрочнул! 😼\n"
         f"На твоем счету <b>{chat_stats['masturbations_count']}</b> вздрочки.",
-        reply_markup=get_spray_markup(spray_count, message.from_user.id),  # Добавлена кнопка
+        reply_markup=get_spray_markup(spray_count, message.from_user.id),
         parse_mode="HTML"
     )
 
 
-# --- ОБРАБОТЧИК НАЖАТИЯ НА КНОПКУ ---
+# --- ОБРАБОТЧИК НАЖАТИЯ НА КНОПКУ СПРЕЯ ---
 @router.callback_query(F.data.startswith("use_spray_callback:"))
 async def callback_use_spray(callback: types.CallbackQuery, get_user, save_db):
     _, owner_id = callback.data.split(":")
@@ -110,10 +135,10 @@ async def callback_use_spray(callback: types.CallbackQuery, get_user, save_db):
         inv["💦"] = spray_count - 1
         chat_stats["last_droch_time"] = 0
         await save_db(callback.from_user.id, user)
-        # Редактируем сообщение согласно ТЗ
+
         await callback.message.edit_text(
             "Ты применил спрей для хуя. 👍 Жми: /drochnut",
-            reply_markup=None  # Убираем кнопку после использования
+            reply_markup=None
         )
     else:
         await callback.answer("Спрей тебе сейчас не нужен!", show_alert=True)

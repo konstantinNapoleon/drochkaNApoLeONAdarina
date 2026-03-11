@@ -31,7 +31,7 @@ GAME_ITEMS = {
   "🏳️‍⚧️": {
     "name": "Флаг Miside",
     "description": "Символ любви к спорту.",
-    "price": -1,
+    "price": 0,
     "emoji": "🏳️‍⚧️"
   },
 
