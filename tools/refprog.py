@@ -1,106 +1,130 @@
 from aiogram import Router, types
-from aiogram.filters import CommandStart, Command, CommandObject
-from aiogram.utils.deep_linking import create_start_link
+from aiogram.filters import Command, CommandObject
+# Не забудь импортировать GAME_ITEMS из своей папки items
 from items import GAME_ITEMS
 
 router = Router()
 
-# Настройки
-REWARD_COINS = 1000
-FARMCOIN_EMOJI = "💰"
-REFERRALS_FOR_KING = 20
-
-# Берем эмодзи из GAME_ITEMS
-KING_ITEM_EMOJI = "👑"  # По умолчанию, если в GAME_ITEMS нет
-
-
+# Функция-помощник (если она не импортирована, оставь её здесь)
 def ensure_inv_dict(user) -> dict:
-    inv = user.get("inventory")
-    if not isinstance(inv, dict):
-        if isinstance(inv, list):
-            new_inv = {}
-            for item in inv:
-                new_inv[item] = new_inv.get(item, 0) + 1
-            user["inventory"] = new_inv
-        else:
-            user["inventory"] = {}
-    return user["inventory"]
-
-
-@router.message(Command("start"))
-async def cmd_start(message: types.Message, command: CommandObject, get_user, save_db):
-    user_id = message.from_user.id
-    user = get_user(user_id, message.from_user.username)
-    args = command.args
-
-    # Проверка регистрации
-    if user.get("registered"):
-        return await message.answer("С возвращением! 👋")
-
-    user["registered"] = True
-
-    # Сначала сохраняем самого юзера
-    save_db(user_id, user)
-
-    # Если есть реферальный код
-    if args and args.isdigit():
-        inviter_id = int(args)
-
-        if inviter_id == user_id:
-            return await message.answer("Добро пожаловать! (Нельзя приглашать самого себя)")
-
-        inviter = get_user(inviter_id)
-        if inviter:
-            inviter_inv = ensure_inv_dict(inviter)
-
-            # 1. Начисляем монеты в инвентарь пригласившего
-            inviter_inv[FARMCOIN_EMOJI] = inviter_inv.get(FARMCOIN_EMOJI, 0) + REWARD_COINS
-
-            # 2. Счетчик рефералов
-            inviter["referral_count"] = inviter.get("referral_count", 0) + 1
-            current_refs = inviter["referral_count"]
-
-            # 3. Бонус за 20 рефералов
-            custom_msg = ""
-            if current_refs == REFERRALS_FOR_KING:
-                inviter_inv[KING_ITEM_EMOJI] = inviter_inv.get(KING_ITEM_EMOJI, 0) + 1
-                inviter["custom_role"] = "👑 Реферальный король"
-                custom_msg = f"\n\n👑 <b>Король!</b> Ты пригласил {REFERRALS_FOR_KING} друзей и получил <b>{KING_ITEM_EMOJI}</b>!"
-
-            # --- SQLITE FIX (Сохраняем пригласившего) ---
-            save_db(inviter_id, inviter)
-
-            await message.answer("✅ Ты успешно зарегистрировался по ссылке друга!")
-
-            try:
-                await message.bot.send_message(
-                    inviter_id,
-                    f"🎉 По твоей ссылке зашел новый друг! Тебе начислено <b>{REWARD_COINS} {FARMCOIN_EMOJI}</b> в инвентарь.{custom_msg}",
-                    parse_mode="HTML"
-                )
-            except:
-                pass
+  inv = user.get("inventory")
+  if not isinstance(inv, dict):
+    if isinstance(inv, list):
+      new_inv = {}
+      for item in inv:
+        new_inv[item] = new_inv.get(item, 0) + 1
+      user["inventory"] = new_inv
     else:
-        await message.answer("Добро пожаловать в бота! Используй /ref, чтобы приглашать друзей.")
+      user["inventory"] = {}
+  return user["inventory"]
 
+@router.message(Command("notgiv"))
+async def cmd_notgiv(message: types.Message, command: CommandObject, get_user, save_db):
+  # 1. Проверка на твой ID
+  if message.from_user.id != 5006326062:
+    return
 
-@router.message(Command("ref"))
-async def cmd_ref(message: types.Message, get_user):
-    user = get_user(message.from_user.id)
-    ref_count = user.get("referral_count", 0)
+  # 2. Разбираем аргументы: /notgiv 5006326062 💦 50
+  args = command.args.split() if command.args else []
+  if len(args) < 3:
+    return await message.answer("⚠️ Использование: `/notgiv [ID] [Эмодзи] [Кол-во]`")
 
-    # Генерируем ссылку
-    link = await create_start_link(message.bot, str(message.from_user.id), encode=False)
+  target_id_str, item_emoji, amount_str = args[0], args[1], args[2]
 
-    text = (
-        f"🔗 <b>Твоя реферальная ссылка:</b>\n"
-        f"<code>{link}</code>\n\n"
-        f"💰 За каждого друга ты получишь: <b>{REWARD_COINS} {FARMCOIN_EMOJI}</b> (в инвентарь)\n"
-        f"👥 Приглашено: <b>{ref_count}</b>\n\n"
-        f"🎁 <b>Бонус:</b> {REFERRALS_FOR_KING} друзей = предмет <b>{KING_ITEM_EMOJI}</b>!"
+  try:
+    target_id = int(target_id_str)
+    amount = int(amount_str)
+  except ValueError:
+    return await message.answer("❌ ID и количество должны быть числами.")
+
+  # 3. Проверка предмета в твоем словаре
+  if item_emoji not in GAME_ITEMS:
+    return await message.answer(f"❌ Предмет {item_emoji} не найден в GAME_ITEMS.")
+
+  # 4. Получаем данные того, кому выдаем
+  target_user = await get_user(target_id, None)
+  if not target_user:
+    return await message.answer("❌ Этот пользователь еще не заходил в бота.")
+
+  # 5. Обновляем инвентарь в памяти
+  inv_dict = ensure_inv_dict(target_user)
+  inv_dict[item_emoji] = inv_dict.get(item_emoji, 0) + amount
+
+  # 6. СОХРАНЯЕМ В БАЗУ ДАННЫХ (используем твою функцию)
+  await save_db(target_id, target_user)
+
+  # 7. Подтверждение
+  item_name = GAME_ITEMS[item_emoji].get("name", "Предмет")
+  await message.answer(
+    f"✅ <b>Успешно выдано!</b>\n"
+    f"👤 ID: <code>{target_id}</code>\n"
+    f"📦 Предмет: {item_emoji} {item_name}\n"
+    f"🔢 Количество: +{amount} шт.",
+    parse_mode="HTML"
+  )
+
+  # Уведомление игрока (если хочешь)
+  try:
+    await message.bot.send_message(
+      target_id,
+      f"🎁 Администратор выдал вам: {item_emoji} <b>{item_name}</b> ({amount} шт.)",
+      parse_mode="HTML"
     )
+  except:
+    pass
 
-    if ref_count >= REFERRALS_FOR_KING:
-        text += f"\n\n👑 Статус <b>Короля</b> получен!"
+@router.message(Command("unnotgiv"))
+async def cmd_unnotgiv(message: types.Message, command: CommandObject, get_user, save_db):
+      # 1. Проверка на твой ID
+      if message.from_user.id != 5006326062:
+          return
 
-    await message.answer(text, parse_mode="HTML")
+      # 2. Разбираем аргументы
+      args = command.args.split() if command.args else []
+      if len(args) < 3:
+          return await message.answer("⚠️ Формат: `/unnotgiv [ID] [Эмодзи] [Кол-во]`")
+
+      target_id_str, item_emoji, amount_str = args[0], args[1], args[2]
+
+      try:
+          target_id = int(target_id_str)
+          amount = int(amount_str)
+      except ValueError:
+          return await message.answer("❌ ID и количество должны быть числами.")
+
+      # 3. Получаем юзера
+      target_user = await get_user(target_id, None)
+      if not target_user:
+          return await message.answer("❌ Пользователь не найден.")
+
+      # 4. Обновляем инвентарь
+      inv_dict = ensure_inv_dict(target_user)
+
+      # Проверяем, есть ли у него этот предмет вообще
+      if item_emoji not in inv_dict:
+          return await message.answer(f"❌ У игрока нет предмета {item_emoji}")
+
+      current_count = inv_dict.get(item_emoji, 0)
+      new_count = current_count - amount
+
+      if new_count <= 0:
+          # Если забираем всё или больше, чем есть — удаляем ключ
+          inv_dict.pop(item_emoji, None)
+          status = "удален полностью"
+      else:
+          inv_dict[item_emoji] = new_count
+          status = f"изъято {amount} шт. (Осталось: {new_count})"
+
+      # 5. Сохраняем в базу (обязательно!)
+      await save_db(target_id, target_user)
+
+      # 6. Получаем имя предмета для сообщения
+      item_info = GAME_ITEMS.get(item_emoji, {})
+      item_name = item_info.get("name", "Предмет")
+
+      await message.answer(
+          f"🗑 <b>Изъятие у</b> <code>{target_id}</code>\n"
+          f"📦 {item_emoji} {item_name}\n"
+          f"📝 Статус: {status}",
+          parse_mode="HTML"
+      )

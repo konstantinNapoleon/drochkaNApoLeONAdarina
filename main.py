@@ -28,7 +28,7 @@ from tools.reklama import router as reklama_router
 from dataIT.bonuscode import router as bonuscode_router
 from handlers.bafus import router as bafus_router
 from inventory.useitem import router as useitem_router
-
+from tools.refprog import router as refprog_router
 
 # --- НАСТРОЙКИ БОТА ---
 TOKEN = os.getenv("BOT_TOKEN")
@@ -175,6 +175,7 @@ async def main():
     dp.include_router(bonuscode_router)
     dp.include_router(bafus_router)
     dp.include_router(useitem_router)
+    dp.include_router(refprog_router)
 
     await bot.delete_webhook(drop_pending_updates=True)
     logger.info("🚀 БОТ ЗАПУЩЕН НА ОБЛАЧНОЙ БАЗЕ (SUPABASE)!")
