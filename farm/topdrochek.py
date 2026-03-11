@@ -34,10 +34,7 @@ async def cmd_top_droch(message: types.Message, get_all_users):
         )
 
         if total > 0:
-            # Берем ТОЛЬКО основное имя (first_name). Юзернейм игнорируем.
-            first_name = user_data.get("first_name")
-            name = first_name if first_name else f"Игрок {str(user_id)[-4:]}"
-
+            name = user_data.get("first_name") or user_data.get("username") or f"Игрок {str(user_id)[-4:]}"
             drocher_scores.append({"name": name, "score": total})
 
     drocher_scores.sort(key=lambda x: x["score"], reverse=True)
@@ -104,10 +101,7 @@ async def back_to_users(callback: types.CallbackQuery, get_all_users):
             if int(cid) < 0
         )
         if total > 0:
-            # То же самое: берем только основное имя
-            first_name = user_data.get("first_name")
-            name = first_name if first_name else f"Игрок {str(user_id)[-4:]}"
-
+            name = user_data.get("first_name") or user_data.get("username") or f"Игрок {str(user_id)[-4:]}"
             drocher_scores.append({"name": name, "score": total})
 
     drocher_scores.sort(key=lambda x: x["score"], reverse=True)
@@ -121,4 +115,4 @@ async def back_to_users(callback: types.CallbackQuery, get_all_users):
 
 @router.callback_query(F.data == "close_top")
 async def close_top_menu(callback: types.CallbackQuery):
-  await callback.message.delete()
+    await callback.message.delete()
