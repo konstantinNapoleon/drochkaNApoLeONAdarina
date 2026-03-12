@@ -67,7 +67,7 @@ def ensure_inv_dict(user) -> dict:
 @router.message(Command("search"))
 async def cmd_search(message: types.Message, get_user, save_db):
     if message.chat.username != ALLOWED_CHAT:
-        return await message.reply(f"❌ Искать хлам можно только в чате @{ALLOWED_CHAT}!")
+        return await message.reply(f"❌ ЧУУУВАААК искать хлам можно только в чате @{ALLOWED_CHAT}!")
 
     # Время МСК (UTC+3)
     current_hour = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=3)).hour
@@ -81,7 +81,7 @@ async def cmd_search(message: types.Message, get_user, save_db):
     if not success:
         fail_desc = random.choice(FAIL_TEXTS)
         text = (
-            "╭ 🏭 <b>ЗАБРОШЕННЫЙ ЗАВОД</b>\n"
+            "╭ 🏭 <b>ПОИСК...</b>\n"
             "│\n"
             f"╰ {fail_desc}\n\n"
             "👣 <i>К сожалению, твой мешок остался совершенно пустым...</i>"
@@ -108,7 +108,7 @@ async def cmd_search(message: types.Message, get_user, save_db):
 
     description = random.choice(SEARCH_TEXTS)
     text = (
-        "╭ 🏭 <b>ЗАБРОШЕННЫЙ ЗАВОД</b>\n"
+        "╭ 🏭 <b>ПОИСК...</b>\n"
         "│\n"
         f"╰ {description}\n\n"
     )
@@ -119,7 +119,7 @@ async def cmd_search(message: types.Message, get_user, save_db):
         text += f"📦 {it} <b>{name}</b> (+{cnt})\n"
 
     if is_lucky:
-        text += "\n🍀 <b>Ого! Тебе повезло найти двойную добычу!</b>"
+        text += "\n🍀 <b>ебать! Тебе повезло найти двойную добычу!</b>"
 
     await message.reply(text, parse_mode="HTML")
 
@@ -132,7 +132,7 @@ async def cmd_lom(message: types.Message, get_user):
     items_in_inv = {k: v for k, v in inv.items() if k in FACTORY_LOOT_POOL and v > 0}
 
     if not items_in_inv:
-        return await message.reply("📦 У тебя нет хлама. Иди на завод: /search")
+        return await message.reply("📦 Чел у тебя нет хлама. иди на завод: /search")
 
     text = "🛠 <b>Твой мешок с хламом:</b>\n\n"
     for emoji, count in items_in_inv.items():
