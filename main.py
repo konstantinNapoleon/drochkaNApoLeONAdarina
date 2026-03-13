@@ -15,7 +15,7 @@ from handlers.droch import router as droch_router
 from handlers.trade import router as trade_router
 from handlers.shop import router as shop_router
 from inventory.commands import router as inventory_router
-from handlers.oil import router as oil_router
+from games.case import router as case_router
 from handlers.itemgive import router as itemgive_router
 from handlers.bonus import router as bonus_router
 from handlers.id import router as id_router
@@ -28,6 +28,9 @@ from tools.reklama import router as reklama_router
 from handlers.bafus import router as bafus_router
 from inventory.xlame import router as xlame_router
 from tools.refprog import router as refprog_router
+from handlers.etel import router as etel_router
+from games.cybik import router as cybik_router
+from games.igram import router as igram_router
 
 # --- НАСТРОЙКИ БОТА ---
 TOKEN = os.getenv("BOT_TOKEN")
@@ -161,7 +164,7 @@ async def main():
     dp.include_router(gamecub_router)
     dp.include_router(shop_router)
     dp.include_router(inventory_router)
-    dp.include_router(oil_router)
+    dp.include_router(case_router)
     dp.include_router(itemgive_router)
     dp.include_router(bonus_router)
     dp.include_router(id_router)
@@ -174,6 +177,9 @@ async def main():
     dp.include_router(bafus_router)
     dp.include_router(xlame_router)
     dp.include_router(refprog_router)
+    dp.include_router(etel_router)
+    dp.include_router(cybik_router)
+    dp.include_router(igram_router)
 
     await bot.delete_webhook(drop_pending_updates=True)
     logger.info("🚀 БОТ ЗАПУЩЕН НА ОБЛАЧНОЙ БАЗЕ (SUPABASE)!")
