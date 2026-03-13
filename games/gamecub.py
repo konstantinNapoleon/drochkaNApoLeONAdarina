@@ -55,6 +55,21 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
     if item_count <= 0:
         return await message.reply("❌ <b>У тебя нету такого предмета.</b>", parse_mode="HTML")
 
+    # --- СПЕЦИАЛЬНАЯ ЛОГИКА ДЛЯ ДОЗАТОРА ---
+    if item_emoji == "🚰":
+        is_active = user.get("spray_dispenser_active", False)
+
+        # Меняем статус на противоположный
+        user["spray_dispenser_active"] = not is_active
+        await save_db(message.from_user.id, user)
+
+        if not is_active:
+            return await message.reply(
+                "🚰 <b>Дозатор спрея включен!</b>\nТеперь спреи будут тратиться автоматически при дрочке.",
+                parse_mode="HTML")
+        else:
+            return await message.reply("🚰 <b>Дозатор спрея выключен!</b>", parse_mode="HTML")
+
     # --- СПЕЦИАЛЬНАЯ ЛОГИКА ДЛЯ КЛЮЧА ---
     if item_emoji == "🔑":
         current_time = time.time()
@@ -80,7 +95,7 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
     # --- ОБЩАЯ ЛОГИКА ДЛЯ ОСТАЛЬНЫХ ПРЕДМЕТОВ ---
     item_name = GAME_ITEMS[item_emoji].get("name", "Неизвестный предмет")
 
-    # Для остальных предметов трата отключена (как ты и просил)
+    # Для остальных предметов трата отключена
     await save_db(message.from_user.id, user)
 
     response_data = USE_RESPONSES.get(item_emoji)
@@ -114,9 +129,12 @@ async def cmd_use(message: types.Message, get_user, save_db):
         return await message.reply("Укажи предмет. Пример: <code>/use 🔑</code>", parse_mode="HTML")
     await process_item_use(message, args[1].strip(), get_user, save_db)
 
-    @router.message(F.text.lower().startswith("юз "))
-    async def text_use(message: types.Message, get_user, save_db):
-        item_emoji = message.text[3:].strip()
-        if not item_emoji:
-            return await message.reply("Укажи предмет. Пример: <code>юз 🔑</code>", parse_mode="HTML")
-        await process_item_use(message, item_emoji, get_user, save_db)
+
+@router.message(F.text.lower().startswith("юз "))
+async def text_use(message: types.Message, get_user, save_db):
+    item_emoji = message.text[3:].strip()
+    if not item_emoji:
+        return await message.reply("Укажи предмет. Пример: <code>юз 🔑</code>", parse_mode="HTML")
+    await process_item_use(message, item_emoji, get_user, save_db)
+
+
