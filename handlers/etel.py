@@ -73,3 +73,32 @@ def get_user_buffs(user):
         "stamina_multiplier": 1.0 + total_stamina_bonus,
         "luck_multiplier": 1.0 + total_luck_bonus
     }
+
+
+@router.message(F.video)
+async def get_video_file_id(message: types.Message):
+    # Получаем file_id самого лучшего качества видео
+    video_id = message.video.file_id
+
+    # Отправляем file_id обратно пользователю с тегом <code> для удобного копирования
+    await message.reply(
+        f"🎥 <b>ID твоего видео:</b>\n\n"
+        f"<code>{video_id}</code>\n\n"
+        f"<i>(Нажми на ID, чтобы скопировать)</i>",
+        parse_mode="HTML"
+    )
+
+
+# Так же добавим хендлер для GIF-анимаций (анимаций)
+@router.message(F.animation)
+async def get_animation_file_id(message: types.Message):
+    # Получаем file_id гифки
+    anim_id = message.animation.file_id
+
+    await message.reply(
+        f"🎞 <b>ID твоей GIF-анимации:</b>\n\n"
+        f"<code>{anim_id}</code>\n\n"
+        f"<i>(Нажми на ID, чтобы скопировать)</i>",
+        parse_mode="HTML"
+    )
+

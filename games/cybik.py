@@ -79,3 +79,5 @@ async def play_dice(message: types.Message, command: CommandObject, get_user, sa
     await save_db(user_id, user)
     await message.reply("❌ Ты проиграл! 🐷 Надел пояс верности на 6 часов.")
 
+
+
