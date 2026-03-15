@@ -30,7 +30,6 @@ RANKS = {
 
 
 def get_current_rank(droch_count: int) -> str:
-    \"\"\"Определяет ранг на основе общего количества дрочек.\"\"\"
     current_rank = "👶 Новичок"
     for count in sorted(RANKS.keys()):
         if droch_count >= count:
