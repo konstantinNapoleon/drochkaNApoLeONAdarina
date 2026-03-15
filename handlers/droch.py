@@ -30,6 +30,7 @@ RANKS = {
 
 
 def get_current_rank(droch_count: int) -> str:
+    """Определяет актуальный ранг на основе общего количества дрочек."""
     current_rank = "👶 Новичок"
     for count in sorted(RANKS.keys()):
         if droch_count >= count:
@@ -122,17 +123,26 @@ async def process_droch(message: types.Message, get_user, save_db):
     # Обновление статистики (в текущем чате)
     chat_stats["masturbations_count"] += 1
 
-    # --- ОБНОВЛЕНИЕ РАНГА (Глобально) ---
+    # --- ОБНОВЛЕНИЕ РАНГА (С поддержкой старых игроков) ---
+    # Сохраняем текущий ранг для сравнения
+    old_rank = user.get("rank", "👶 Новичок")
+
+    # Прибавляем дрочку в глобальный счетчик
     total_droch = user.get("total_droch_count", 0) + 1
     user["total_droch_count"] = total_droch
 
-    # Если текущее число есть в словаре рангов — поздравляем
-    if total_droch in RANKS:
-        new_rank = RANKS[total_droch]
-        await message.answer(f"🎉 Поздравляем! Твоё новое звание: <b>{new_rank}</b>!", parse_mode="HTML")
+    # Вычисляем, какой ранг должен быть сейчас
+    current_calculated_rank = get_current_rank(total_droch)
 
-    # Обновляем строковое значение ранга в профиле
-    user["rank"] = get_current_rank(total_droch)
+    # Если вычисленный ранг отличается от того, что был в базе
+    if current_calculated_rank != old_rank:
+        user["rank"] = current_calculated_rank
+        # Уведомляем о новом звании (актуально и для тех, кто "пролетел" несколько рангов сразу)
+        await message.answer(
+            f"🎊 <b>Новое звание!</b>\n"
+            f"Теперь ты: <b>{current_calculated_rank}</b>!",
+            parse_mode="HTML"
+        )
 
     # --- ЛОГИКА ДОЗАТОРА СПРЕЯ ---
     dispenser_active = user.get("spray_dispenser_active", False)
@@ -244,6 +254,7 @@ async def use_spray_cmd(message: types.Message, get_user, save_db):
         await message.reply("Ты применил <b>спрей</b>! 🌼 Жми: /drochnut", parse_mode="HTML")
     else:
         await message.reply("Спрей сейчас не нужен!")
+
 
 
 
