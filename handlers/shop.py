@@ -216,3 +216,26 @@ async def buy_canceled(callback: types.CallbackQuery):
 
     await callback.message.edit_text("❌ Покупка отменена.")
     await callback.answer()
+
+    @router.message(Command("whatis"))
+    async def cmd_whatis(message: types.Message):
+        args = message.text.split(maxsplit=1)
+
+        if len(args) < 2:
+            return await message.reply("Укажи предмет. Пример: <code>/whatis 🏀</code>", parse_mode="HTML")
+
+        item_emoji = args[1].strip()
+
+        if item_emoji not in GAME_ITEMS:
+            return await message.reply("❌ <b>Такого предмета не существует.</b>", parse_mode="HTML")
+
+        item_data = GAME_ITEMS[item_emoji]
+        item_name = item_data.get("name", "Неизвестный предмет")
+        item_desc = item_data.get("description", "Описание отсутствует.")
+
+        response = (
+            f"📦 <b>{item_emoji} {item_name}: {item_desc}</b>\n\n"
+
+        )
+
+        await message.reply(response, parse_mode="HTML")

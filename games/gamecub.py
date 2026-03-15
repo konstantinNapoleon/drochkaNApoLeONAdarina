@@ -29,6 +29,9 @@ USE_VIDEOS = {
         "BAACAgIAAxkBAAITImmquiIq3Ri3sTdcClx7YHpuD5PjAAIejgACXipYSR78vNovn3k8OgQ"
     ],
     "🔑": [],  # Сюда можно добавить видео/гифку открытия замка
+    "🚛": [
+        "BAACAgIAAxkBAAItemm24NkB0J1lw93_eUq4nxjoIPaJAAIcmQAC2ES5SVbnox05RsRiOgQ"
+    ],
     "🔰": [
         "BAACAgIAAxkBAAIinmm0m1uLYASs19udNu-x61-zTOYQAAIelwACTkGgSdwKhl8bngsKOgQ",
         "BAACAgIAAxkBAAIiomm0m-pMRBJLiOZU2TngmJcmY5E-AAIflwACTkGgSW8xnLX3hyrGOgQ",
@@ -126,7 +129,7 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
     if video_list and len(video_list) > 0:
         random_video = random.choice(video_list)
         try:
-            await message.answer_video(video=random_video)
+            await message.reply_video(video=random_video)
         except Exception:
             pass
 

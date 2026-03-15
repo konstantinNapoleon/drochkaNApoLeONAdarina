@@ -460,8 +460,8 @@ GAME_ITEMS = {
         "emoji": "🎂"
     },
     "🚛": {
-        "name": "КрАЗ",
-        "description": "Ёбаный блять…",
+        "name": "KAMAZ",
+        "description": "Гони Саня, гони! Быстрей...",
         "price": 0,
         "emoji": "🚛"
     },
@@ -491,13 +491,13 @@ GAME_ITEMS = {
     },
     "🍃": {
         "name": "Табак",
-        "description": "Для сигареты",
+        "description": "Можно прикурнуть",
         "price": 0,
         "emoji": "🍃"
     },
     "📜": {
-        "name": "Бумажка",
-        "description": "Просто бумажка",
+        "name": "Бумага",
+        "description": "Для крафта",
         "price": 0,
         "emoji": "📜"
     },
@@ -514,8 +514,8 @@ GAME_ITEMS = {
         "emoji": "💩"
     },
     "🧬": {
-        "name": "Ген дрочуна",
-        "description": "Наследственный онанизм (+5 к выносливости)",
+        "name": "ДНК отчимного хера",
+        "description": "Наследственный (+5 к выносливости)",
         "price": 0,
         "emoji": "🧬"
     },
