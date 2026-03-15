@@ -508,8 +508,8 @@ GAME_ITEMS = {
         "emoji": "⚠️"
     },
     "💩": {
-        "name": "Дерьмо",
-        "description": "Для говноедов",
+        "name": "кучка говна",
+        "description": "не дает писать 1 минуту ",
         "price": 0,
         "emoji": "💩"
     },

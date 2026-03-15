@@ -99,6 +99,10 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
         await save_db(message.from_user.id, user)
         return await message.reply(USE_RESPONSES["🔑"], parse_mode="HTML")
 
+    # --- СПЕЦИАЛЬНАЯ ЛОГИКА ДЛЯ МЯЧА ---
+    if item_emoji == "🏀":
+        return await message.answer_dice(emoji="🏀")
+
     # --- ОБЩАЯ ЛОГИКА ДЛЯ ОСТАЛЬНЫХ ПРЕДМЕТОВ ---
     item_name = GAME_ITEMS[item_emoji].get("name", "Неизвестный предмет")
 
