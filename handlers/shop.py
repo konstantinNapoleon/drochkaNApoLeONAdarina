@@ -217,22 +217,30 @@ async def buy_canceled(callback: types.CallbackQuery):
     await callback.message.edit_text("❌ Покупка отменена.")
     await callback.answer()
 
-    @router.message(Command("whatis"))
-    async def cmd_whatis(message: types.Message):
-        args = message.text.split(maxsplit=1)
 
-        if len(args) < 2:
-            return await message.reply("Укажи предмет. Пример: /whatis 🏀")
+@router.message(Command("whatis"))
+async def cmd_whatis(message: types.Message):
+    # Разделяем текст: ['/whatis', '🏀']
+    args = message.text.split()
 
-        item_emoji = args[1].strip()
+    if len(args) < 2:
+        return await message.reply("Пример: /whatis 🏀")
 
-        if item_emoji not in GAME_ITEMS:
-            return await message.reply("❌ Такого предмета не существует.")
+    # Достаем сам эмодзи (ключ в словаре)
+    item_emoji = args[1].strip()
 
-        item_data = GAME_ITEMS[item_emoji]
-        item_name = item_data.get("name", "Неизвестный предмет")
-        item_desc = item_data.get("description", "Описание отсутствует.")
+    # Проверяем, есть ли такой ключ в твоем словаре GAME_ITEMS
+    if item_emoji not in GAME_ITEMS:
+        return await message.reply(f"Предмет {item_emoji} не найден.")
 
-        response = f"{item_emoji} {item_name}: {item_desc}"
+    # Получаем данные из вложенного словаря
+    item = GAME_ITEMS[item_emoji]
+    name = item.get("name", "Без названия")
+    description = item.get("description", "Без описания")
 
-        await message.reply(response)
+    # Формируем ответ по твоему шаблону
+    # 🏀 Баскетбольный мяч: Хуйня
+    response = f"{item_emoji} {name}: {description}"
+
+    await message.reply(response)
+
