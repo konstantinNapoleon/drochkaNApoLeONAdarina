@@ -222,20 +222,17 @@ async def buy_canceled(callback: types.CallbackQuery):
         args = message.text.split(maxsplit=1)
 
         if len(args) < 2:
-            return await message.reply("Укажи предмет. Пример: <code>/whatis 🏀</code>", parse_mode="HTML")
+            return await message.reply("Укажи предмет. Пример: /whatis 🏀")
 
         item_emoji = args[1].strip()
 
         if item_emoji not in GAME_ITEMS:
-            return await message.reply("❌ <b>Такого предмета не существует.</b>", parse_mode="HTML")
+            return await message.reply("❌ Такого предмета не существует.")
 
         item_data = GAME_ITEMS[item_emoji]
         item_name = item_data.get("name", "Неизвестный предмет")
         item_desc = item_data.get("description", "Описание отсутствует.")
 
-        response = (
-            f"📦 <b>{item_emoji} {item_name}: {item_desc}</b>\n\n"
+        response = f"{item_emoji} {item_name}: {item_desc}"
 
-        )
-
-        await message.reply(response, parse_mode="HTML")
+        await message.reply(response)
