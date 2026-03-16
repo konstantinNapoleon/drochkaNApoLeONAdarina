@@ -2,6 +2,8 @@ import html
 from aiogram import Router, types, F
 from aiogram.filters import Command
 
+from handlers.droch import get_current_rank, get_current_date_str
+
 router = Router()
 
 FARMCOIN = "💰"
@@ -60,6 +62,47 @@ async def cmd_inventory_grid(message: types.Message, get_user, save_db):
   # <pre> — обязателен для работы выравнивания
   response = f"<pre>{html.escape(inventory_render)}</pre>"
   await message.answer(response, parse_mode="HTML")
+
+
+
+@router.message(Command("me"))
+async def cmd_me(message: types.Message, get_user):
+    user = await get_user(message.from_user.id, message.from_user.username)
+    chat_id = str(message.chat.id)
+
+    # Данные для вывода
+    total_droch = user.get("total_droch_count", 0)
+    rank = get_current_rank(total_droch)
+
+    # Числа
+    farmcoin_count = user.get("farm_coins", 0)  # Твои ФармКоины
+    balance = user.get("balance", 0)
+    total_farmed = user.get("total_farm_coins", 0)
+
+    # Статистика дрочки
+    current_date = get_current_date_str()
+    daily_droch = user.get("daily_stats", {}).get(current_date, 0)
+    chat_droch = user.get("chats_data", {}).get(chat_id, {}).get("masturbations_count", 0)
+
+    # Формируем сообщение
+    text = (
+      f"👤 <b>Профиль:</b> {message.from_user.full_name}\n"
+      f"━━━━━━━━━━━━━━\n"
+      f"🎖 <b>Звание:</b> {rank}\n\n"
+
+      f"{FARMCOIN} ФармКоин: <b>{farmcoin_count:,}</b>\n"  # Твоя строка
+
+      f"💰 Баланс: <b>{balance:,}</b> 🪙\n"
+      f"📈 Всего нафармлено: <b>{total_farmed:,}</b> 🪙\n\n"
+
+      f"📊 <b>Статистика дрочки:</b>\n"
+      f"├ В этом чате: <code>{chat_droch}</code>\n"
+      f"├ За сегодня: <code>{daily_droch}</code>\n"
+      f"└ Всего: <b>{total_droch}</b>"
+    )
+
+    await message.reply(text, parse_mode="HTML")
+
 
 
 
