@@ -46,6 +46,7 @@ def get_current_date_str():
 
 
 def get_real_total(user) -> int:
+    """Суммирует все дрочки из всех чатов для правильного ранга старых игроков."""
     chats_data = user.get("chats_data", {})
     total_from_chats = sum(c.get("masturbations_count", 0) for c in chats_data.values())
     return max(user.get("total_droch_count", 0), total_from_chats)
@@ -64,23 +65,32 @@ def ensure_inv_dict(user) -> dict:
     return user["inventory"]
 
 
-# --- КЛАВИАТУРА ПРОФИЛЯ ---
+# --- UI КОМПОНЕНТЫ ---
+
 def get_me_markup(user_id: int):
+    """Клавиатура профиля с кнопкой инвентаря. Передает флаг 'back'."""
     builder = InlineKeyboardBuilder()
-    builder.button(text="🎒 Инвентарь", callback_data=f"inv_page_{user_id}_0")
+    # Метка _back в конце коллбэка сигнализирует инвентарю, что нужно показать кнопку назад
+    builder.button(text="🎒 Инвентарь", callback_data=f"inv_page_{user_id}_0_back")
     builder.button(text="❌ Закрыть", callback_data=f"inv_close_{user_id}")
     builder.adjust(1)
     return builder.as_markup()
 
 
-# --- ГЕНЕРАЦИЯ ТЕКСТА ПРОФИЛЯ ---
 def get_me_text(user, chat_id: str, full_name: str):
+    """Генерация текста профиля (используется и в команде, и в коллбэке)."""
     chats_data = user.get("chats_data", {})
     inv = ensure_inv_dict(user)
+
     total_global = get_real_total(user)
     rank = get_current_rank(total_global)
+
+    # ФармКоины из инвентаря
     farmcoin_count = inv.get(FARMCOIN_EMOJI, 0)
+
+    # Статистика для топа (только группы)
     total_in_groups = sum(c.get("masturbations_count", 0) for cid, c in chats_data.items() if int(cid) < 0)
+
     balance = user.get("balance", 0)
     total_farmed = user.get("total_farm_coins", 0)
     current_date = get_current_date_str()
@@ -103,6 +113,8 @@ def get_me_text(user, chat_id: str, full_name: str):
     )
 
 
+# --- ХЕНДЛЕРЫ ИНФОРМАЦИИ ---
+
 @router.message(Command("me"))
 async def cmd_me(message: types.Message, get_user):
     user = await get_user(message.from_user.id, message.from_user.username)
@@ -110,9 +122,9 @@ async def cmd_me(message: types.Message, get_user):
     await message.reply(text, parse_mode="HTML", reply_markup=get_me_markup(message.from_user.id))
 
 
-# Коллбэк для возврата в профиль
 @router.callback_query(F.data.startswith("open_me:"))
 async def callback_open_me(callback: types.CallbackQuery, get_user):
+    """Возврат в профиль из инвентаря (через редактирование сообщения)."""
     owner_id = int(callback.data.split(":")[1])
     if callback.from_user.id != owner_id:
         return await callback.answer("Это не твой профиль!", show_alert=True)
@@ -126,16 +138,19 @@ async def callback_open_me(callback: types.CallbackQuery, get_user):
         await callback.answer()
 
 
-# --- ОСТАЛЬНАЯ ЛОГИКА ДРОЧКИ ---
+# --- ЛОГИКА ДРОЧКИ ---
+
 async def process_droch(message: types.Message, get_user, save_db):
     user = await get_user(message.from_user.id, message.from_user.username)
     chat_id = str(message.chat.id)
     inv = ensure_inv_dict(user)
     current_time = time.time()
-    belt_expire = user.get("belt_expire_time", 0)
-    if current_time < belt_expire:
+
+    # Проверка пояса
+    if current_time < user.get("belt_expire_time", 0):
         return await message.reply("На тебе пояс верности! 🔒")
 
+    # Расчет КД
     buffs = get_user_buffs(user)
     current_cooldown = int(1800 / buffs["stamina_multiplier"])
 
@@ -144,23 +159,38 @@ async def process_droch(message: types.Message, get_user, save_db):
 
     chat_stats = user["chats_data"][chat_id]
     if (current_time - chat_stats.get("last_droch_time", 0)) < current_cooldown:
-        return await message.reply("КД!")
+        return await message.reply("Ты недавно дрочил! 🤕")
 
+    # Обновление счетчиков
     chat_stats["masturbations_count"] += 1
     total_droch = get_real_total(user) + 1
     user["total_droch_count"] = total_droch
 
+    # Звание
+    old_rank = user.get("rank", "👶 Новичок")
+    new_rank = get_current_rank(total_droch)
+    if new_rank != old_rank:
+        user["rank"] = new_rank
+        await message.answer(f"🎊 <b>Новое звание!</b>\nТеперь ты: <b>{new_rank}</b>!", parse_mode="HTML")
+
+    # Сегодня
     if "daily_stats" not in user: user["daily_stats"] = {}
     user["daily_stats"][get_current_date_str()] = user["daily_stats"].get(get_current_date_str(), 0) + 1
 
     chat_stats["last_droch_time"] = current_time
     await save_db(message.from_user.id, user)
-    await message.reply(f"Вздрочнул! Всего в чате: {chat_stats['masturbations_count']}")
+    await message.reply(f"Ты успешно вздрочнул! 😼\nНа твоем счету <b>{chat_stats['masturbations_count']}</b> вздрочки.")
+
+
+@router.message(Command("drochnut", "дрочнуть"))
+async def cmd_drochnut(message: types.Message, get_user, save_db):
+    await process_droch(message, get_user, save_db)
 
 
 @router.message(F.text.lower().in_({"дрочнуть", "юз рука", "юз хуй"}))
 async def text_drochnut(message: types.Message, get_user, save_db):
     await process_droch(message, get_user, save_db)
+
 
 
 
