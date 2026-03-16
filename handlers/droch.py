@@ -107,15 +107,13 @@ def get_me_text(user, chat_id: str, full_name: str):
         f"👤 <b>Профиль:</b> {html.escape(full_name)}\n"
         f"━━━━━━━━━━━━━━\n"
         f"🎖 <b>Звание:</b> {rank}\n\n"
-        f"{FARMCOIN_EMOJI} ФармКоин: <b>{farmcoin_count:,}</b>\n"
-        f"💰 Баланс: <b>{balance:,}</b> 🪙\n"
-        f"📈 Всего нафармлено: <b>{total_farmed:,}</b> 🪙\n"
+        f"{FARMCOIN_EMOJI} ФармКоин: <b>{farmcoin_count:,}</b>\n\n"
         f"━━━━━━━━━━━━━━\n"
         f"📊 <b>Статистика дрочки:</b>\n"
-        f"├ В этом чате: <code>{chat_droch}</code>\n"
-        f"├ За сегодня: <b>{daily_droch}</b> 🔥\n"
-        f"├ Всего в группах (ТОП): <b>{total_in_groups}</b> 🏆\n"
-        f"└ Общий стаж (РАНГ): <b>{total_global}</b>"
+        f"├"
+        f"├ 🎲 В этом чате: <b>{chat_droch}</b>\n"
+        f"├ 🔥 За сегодня: <b>{daily_droch}</b> \n"
+        f"└ 🏆 Всего в группах (ТОП): <b>{total_in_groups}</b> \n"
     )
 
 
