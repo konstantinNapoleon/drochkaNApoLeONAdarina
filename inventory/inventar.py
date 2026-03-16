@@ -45,6 +45,8 @@ def get_inventory_data(user_inventory: dict):
 def create_inventory_kb(current_page: int, total_pages: int, user_id: int):
     builder = InlineKeyboardBuilder()
     buttons = []
+
+    # Кнопки пагинации
     if current_page > 0:
         buttons.append(types.InlineKeyboardButton(text="⬅️", callback_data=f"inv_page_{user_id}_{current_page - 1}"))
     buttons.append(types.InlineKeyboardButton(text=f"{current_page + 1}/{total_pages}", callback_data="none"))
@@ -52,7 +54,13 @@ def create_inventory_kb(current_page: int, total_pages: int, user_id: int):
         buttons.append(types.InlineKeyboardButton(text="➡️", callback_data=f"inv_page_{user_id}_{current_page + 1}"))
 
     builder.row(*buttons)
+
+    # НОВАЯ КНОПКА: Возврат в профиль
+    builder.row(types.InlineKeyboardButton(text="👤 Информация", callback_data=f"open_me:{user_id}"))
+
+    # Кнопка закрытия
     builder.row(types.InlineKeyboardButton(text="❌ Закрыть", callback_data=f"inv_close_{user_id}"))
+
     return builder.as_markup()
 
 
