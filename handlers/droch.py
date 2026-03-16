@@ -94,6 +94,9 @@ def get_me_text(user, chat_id: str, full_name: str):
     rank = get_current_rank(total_global)
     farmcoin_count = inv.get(FARMCOIN_EMOJI, 0)
 
+    # СТРЕСС
+    stress = user.get("stress", 0)
+
     # Синхронизация с ТОПом (только группы)
     total_in_groups = sum(c.get("masturbations_count", 0) for cid, c in chats_data.items() if int(cid) < 0)
 
@@ -110,7 +113,7 @@ def get_me_text(user, chat_id: str, full_name: str):
         f"{FARMCOIN_EMOJI} ФармКоин: <b>{farmcoin_count:,}</b>\n"
         f"━━━━━━━━━━━━━━\n"
         f"📊 <b>Статистика дрочки:</b>\n"
-        f"├\n"
+        f"├ 🧘 Стресс: <b>{stress}%</b>\n"
         f"├ 🎲 В этом чате: <b>{chat_droch}</b>\n"
         f"├ 🔥 За сегодня: <b>{daily_droch}</b> \n"
         f"└ 🏆 Всего в группах (ТОП): <b>{total_in_groups}</b> \n"
@@ -145,6 +148,10 @@ async def process_droch(message: types.Message, get_user, save_db):
     inv = ensure_inv_dict(user)
     spray_count = inv.get("💦", 0)
     current_time = time.time()
+
+    # --- ПРОВЕРКА СТРЕССА ---
+    if user.get("stress", 0) >= 100:
+        return await message.reply("Твой стресс слишком высок, поэтому твой дружок не встаёт")
 
     belt_expire = user.get("belt_expire_time", 0)
     if current_time < belt_expire:
@@ -209,6 +216,9 @@ async def process_droch(message: types.Message, get_user, save_db):
         user["daily_stats"] = {}
     current_date = get_current_date_str()
     user["daily_stats"][current_date] = user["daily_stats"].get(current_date, 0) + 1
+
+    # --- ПРИБАВЛЕНИЕ СТРЕССА ---
+    user["stress"] = min(100, user.get("stress", 0) + 3)
 
     if "achievements" not in user or not isinstance(user["achievements"], list):
         user["achievements"] = []

@@ -1,11 +1,21 @@
 import html
 import random
-import time  # Добавили импорт времени
+import time
 from aiogram import Router, F, types
 from aiogram.filters import Command
 from items import GAME_ITEMS
 
 router = Router()
+
+# СЮДА ВСТАВЬ FILE ID СТИКЕРА (узнать через @idstickerbot)
+POPPIT_STICKER_ID = [
+    "CAACAgIAAxkBAAEQxE1puHx0R6iBBX-FirEhnYj38TLOFQACMg4AAm1c0Ei6RlcE9wmVFToE"
+    "CAACAgIAAxkBAAEQxE9puHx4ZPseY5FAjpXGbKYzH3XnFAACfQ0AAlqVyUhX2bGXI1oDmzoE"
+    ]
+
+
+# Список предметов Pop It
+POPPIT_ITEMS = ["🔴", "🟢", "🟪", "🟠", "🟡", "🔵", "🟣", "💜"]
 
 USE_RESPONSES = {
     "🔑": "Ты снял пояс верности и теперь снова можешь дрочить! 🤩",
@@ -40,7 +50,6 @@ USE_RESPONSES = {
     ],
     "🎖️": [
         "🎖️ <b>Медаль тестера</b>\n\nТоржественно вручается тестеру по имени <b>{name}</b>...",
-        # ... остальные тексты для медали ...
     ]
 }
 
@@ -51,7 +60,6 @@ USE_VIDEOS = {
         "BAACAgIAAxkBAAITIGmque0kDcaFuCBvnfh83jCL2zpbAAIZjgACXipYSVcUCme0RwABjToE",
         "BAACAgIAAxkBAAITImmquiIq3Ri3sTdcClx7YHpuD5PjAAIejgACXipYSR78vNovn3k8OgQ"
     ],
-    "🔑": [],  # Сюда можно добавить видео/гифку открытия замка
     "🚛": [
         "BAACAgIAAxkBAAItemm24NkB0J1lw93_eUq4nxjoIPaJAAIcmQAC2ES5SVbnox05RsRiOgQ"
     ],
@@ -88,14 +96,22 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
     if item_count <= 0:
         return await message.reply("❌ <b>У тебя нету такого предмета.</b>", parse_mode="HTML")
 
+    # --- НОВАЯ ЛОГИКА ДЛЯ POP IT (СНЯТИЕ СТРЕССА) ---
+    if item_emoji in POPPIT_ITEMS:
+        user["stress"] = 0
+        inv_dict[item_emoji] -= 1
+        await save_db(message.from_user.id, user)
+
+        await message.reply("Ты пощёлкал Pop It, стресс снижен до нуля. Жми: /drochnut", parse_mode="HTML")
+        if POPPIT_STICKER_ID:
+            await message.answer_sticker(POPPIT_STICKER_ID)
+        return
+
     # --- СПЕЦИАЛЬНАЯ ЛОГИКА ДЛЯ ДОЗАТОРА ---
     if item_emoji == "🚰":
         is_active = user.get("spray_dispenser_active", False)
-
-        # Меняем статус на противоположный
         user["spray_dispenser_active"] = not is_active
         await save_db(message.from_user.id, user)
-
         if not is_active:
             return await message.reply(
                 "🚰 <b>Дозатор спрея включен!</b>\nТеперь спреи будут тратиться автоматически при дрочке.",
@@ -107,21 +123,12 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
     if item_emoji == "🔑":
         current_time = time.time()
         belt_expire = user.get("belt_expire_time", 0)
-
-        # Проверяем, надет ли пояс
         if current_time >= belt_expire:
             return await message.reply("❌ <b>На тебе нет пояса верности!</b>", parse_mode="HTML")
-
-        # Снимаем пояс
         user["belt_expire_time"] = 0
-
-        # Сбрасываем КД на дрочку в этом чате (дает снова вздрочнуть)
         if "chats_data" in user and chat_id in user["chats_data"]:
             user["chats_data"][chat_id]["last_droch_time"] = 0
-
-        # Ключ тратится при использовании
         inv_dict["🔑"] -= 1
-
         await save_db(message.from_user.id, user)
         return await message.reply(USE_RESPONSES["🔑"], parse_mode="HTML")
 
@@ -131,8 +138,6 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
 
     # --- ОБЩАЯ ЛОГИКА ДЛЯ ОСТАЛЬНЫХ ПРЕДМЕТОВ ---
     item_name = GAME_ITEMS[item_emoji].get("name", "Неизвестный предмет")
-
-    # Для остальных предметов трата отключена
     await save_db(message.from_user.id, user)
 
     response_data = USE_RESPONSES.get(item_emoji)
@@ -156,8 +161,6 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
         except Exception:
             pass
 
-
-# --- ОБРАБОТЧИКИ КОМАНД ---
 
 @router.message(Command("use"))
 async def cmd_use(message: types.Message, get_user, save_db):
