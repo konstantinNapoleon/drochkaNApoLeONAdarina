@@ -10,6 +10,7 @@ from handlers.etel import get_user_buffs
 router = Router()
 
 MSK_TZ = timezone(timedelta(hours=3))
+FARMCOIN_EMOJI = "💠"
 
 RANKS = {
     1: "🙋 Школьник",
@@ -124,20 +125,13 @@ async def process_droch(message: types.Message, get_user, save_db):
     chat_stats["masturbations_count"] += 1
 
     # --- ОБНОВЛЕНИЕ РАНГА (С поддержкой старых игроков) ---
-    # Сохраняем текущий ранг для сравнения
     old_rank = user.get("rank", "👶 Новичок")
-
-    # Прибавляем дрочку в глобальный счетчик
     total_droch = user.get("total_droch_count", 0) + 1
     user["total_droch_count"] = total_droch
-
-    # Вычисляем, какой ранг должен быть сейчас
     current_calculated_rank = get_current_rank(total_droch)
 
-    # Если вычисленный ранг отличается от того, что был в базе
     if current_calculated_rank != old_rank:
         user["rank"] = current_calculated_rank
-        # Уведомляем о новом звании (актуально и для тех, кто "пролетел" несколько рангов сразу)
         await message.answer(
             f"🎊 <b>Новое звание!</b>\n"
             f"Теперь ты: <b>{current_calculated_rank}</b>!",
@@ -148,13 +142,12 @@ async def process_droch(message: types.Message, get_user, save_db):
     dispenser_active = user.get("spray_dispenser_active", False)
     dispenser_triggered = False
 
-    # Если дозатор включен, он есть в инвентаре и есть спреи
     if dispenser_active and inv.get("🚰", 0) > 0 and inv.get("💦", 0) > 0:
-        inv["💦"] -= 1  # Тратим 1 спрей автоматически
-        chat_stats["last_droch_time"] = 0  # СБРАСЫВАЕМ КД В НОЛЬ
+        inv["💦"] -= 1
+        chat_stats["last_droch_time"] = 0
         dispenser_triggered = True
     else:
-        chat_stats["last_droch_time"] = current_time  # Обычное КД
+        chat_stats["last_droch_time"] = current_time
 
     if "daily_stats" not in user:
         user["daily_stats"] = {}
@@ -186,6 +179,40 @@ async def process_droch(message: types.Message, get_user, save_db):
         )
         await message.reply(reply_text, reply_markup=get_spray_markup(inv.get("💦", 0), message.from_user.id),
                             parse_mode="HTML")
+
+
+@router.message(Command("me"))
+async def cmd_me(message: types.Message, get_user):
+    user = await get_user(message.from_user.id, message.from_user.username)
+    chat_id = str(message.chat.id)
+
+    # Данные
+    total_droch = user.get("total_droch_count", 0)
+    rank = get_current_rank(total_droch)
+    farmcoin_count = user.get("farm_coins", 0)
+    balance = user.get("balance", 0)
+    total_farmed = user.get("total_farm_coins", 0)
+
+    # Статистика дрочки
+    current_date = get_current_date_str()
+    daily_droch = user.get("daily_stats", {}).get(current_date, 0)
+    chat_droch = user.get("chats_data", {}).get(chat_id, {}).get("masturbations_count", 0)
+
+    # Формируем сообщение
+    text = (
+        f"👤 <b>Профиль:</b> {message.from_user.full_name}\n"
+        f"━━━━━━━━━━━━━━\n"
+        f"🎖 <b>Звание:</b> {rank}\n\n"
+        f"{FARMCOIN_EMOJI} ФармКоин: <b>{farmcoin_count:,}</b>\n\n"
+        f"💰 Баланс: <b>{balance:,}</b> 🪙\n"
+        f"📈 Всего нафармлено: <b>{total_farmed:,}</b> 🪙\n\n"
+        f"📊 <b>Статистика дрочки:</b>\n"
+        f"├ В этом чате: <code>{chat_droch}</code>\n"
+        f"├ За сегодня: <code>{daily_droch}</code>\n"
+        f"└ Всего: <b>{total_droch}</b>"
+    )
+
+    await message.reply(text, parse_mode="HTML")
 
 
 @router.callback_query(F.data.startswith("use_spray_callback:"))
