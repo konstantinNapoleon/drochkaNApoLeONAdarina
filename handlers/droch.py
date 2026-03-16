@@ -11,7 +11,7 @@ from handlers.etel import get_user_buffs
 router = Router()
 
 MSK_TZ = timezone(timedelta(hours=3))
-FARMCOIN_EMOJI = "💠"
+FARMCOIN_EMOJI = "💰"
 
 RANKS = {
     1: "🙋 Школьник",
@@ -197,16 +197,15 @@ async def cmd_me(message: types.Message, get_user):
     text = (
         f"👤 <b>Профиль:</b> {html.escape(message.from_user.full_name)}\n"
         f"━━━━━━━━━━━━━━\n"
-        f"🎖 <b>Звание:</b> {rank}\n\n"
+        
         f"{FARMCOIN_EMOJI} ФармКоин: <b>{farmcoin_count:,}</b>\n"
-        f"💰 Баланс: <b>{balance:,}</b> 🪙\n"
         f"📈 Всего нафармлено: <b>{total_farmed:,}</b> 🪙\n"
         f"━━━━━━━━━━━━━━\n"
+        f"🎖 <b>Звание:</b> {rank}\n"
         f"📊 <b>Статистика дрочки:</b>\n"
         f"├ В этом чате: <code>{chat_droch}</code>\n"
-        f"├ За сегодня: <b>{daily_droch}</b> 🔥\n"
-        f"├ Всего в группах (ТОП): <b>{total_in_groups}</b> 🏆\n"
-        f"└ Общий стаж (РАНГ): <b>{total_global}</b>"
+        f"├ 🔥 За сегодня: <b>{daily_droch}</b> \n"
+        f"└ 🏆 Всего в группах (ТОП): <b>{total_in_groups}</b> \n"
     )
 
     await message.reply(text, parse_mode="HTML")
