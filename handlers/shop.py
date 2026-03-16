@@ -134,13 +134,11 @@ async def close_shop(callback: types.CallbackQuery):
 async def process_buy_command(message: types.Message):
     parts = message.text.split()
 
-    # Если написали просто "купить" без ничего
     if len(parts) < 2:
         return await message.answer("⚠️ Формат: <code>купить 💦</code> или <code>купить 💦 5</code>", parse_mode="HTML")
 
     item_emoji = parts[1]
 
-    # Логика определения количества
     amount = 1
     if len(parts) >= 3:
         try:
@@ -200,7 +198,7 @@ async def buy_confirmed(callback: types.CallbackQuery, get_user, save_db):
 
     total_price = item_info.get("price") * amount
 
-    # --- ЛОГИКА СКИДКИ ПРИ СПИСАНИИ ---
+    # Скидка 30%
     if total_price >= 5000:
         total_price = int(total_price * 0.7)
 
@@ -208,7 +206,30 @@ async def buy_confirmed(callback: types.CallbackQuery, get_user, save_db):
         have = get_farmcoins(user)
         return await callback.answer(f"❌ У тебя {have:,} 💰. Не хватает {total_price - have:,} 💰", show_alert=True)
 
+    # Выдача предмета
     add_item_to_inv(user, item_emoji, amount)
+
+    # --- НОВОЕ: РЕФЕРАЛЬНЫЕ 20% ---
+    inviter_id = user.get("invited_by")
+    if inviter_id:
+        commission = int(total_price * 0.2)
+        if commission > 0:
+            inviter = await get_user(inviter_id)
+            if inviter:
+                inv_dict_inviter = ensure_inv_dict(inviter)
+                inv_dict_inviter[FARMCOIN] = inv_dict_inviter.get(FARMCOIN, 0) + commission
+                await save_db(inviter_id, inviter)
+
+                # Уведомление пригласителя
+                try:
+                    await callback.message.bot.send_message(
+                        inviter_id,
+                        f"📈 Твой реферал совершил покупку! Тебе начислено <b>{commission}</b> {FARMCOIN} (20%)",
+                        parse_mode="HTML"
+                    )
+                except:
+                    pass
+
     await save_db(callback.from_user.id, user)
 
     await callback.message.edit_text(
