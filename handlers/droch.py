@@ -5,12 +5,13 @@ from aiogram import types, F, Router
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-# Импортируем расчет баффов (убедись, что путь верный)
+# Импортируем расчет баффов
 from handlers.etel import get_user_buffs
 
 router = Router()
 
 MSK_TZ = timezone(timedelta(hours=3))
+# В твоем коде инвентаря ФармКоин под эмодзи 💰
 FARMCOIN_EMOJI = "💰"
 
 RANKS = {
@@ -46,13 +47,8 @@ def get_current_date_str():
 
 
 def get_real_total(user) -> int:
-    """
-    Суммирует все дрочки из всех чатов (chats_data).
-    Это исправляет проблему 'Школьника' у старых игроков.
-    """
     chats_data = user.get("chats_data", {})
     total_from_chats = sum(c.get("masturbations_count", 0) for c in chats_data.values())
-    # Возвращаем максимум между сохраненным полем и реальной суммой из чатов
     return max(user.get("total_droch_count", 0), total_from_chats)
 
 
@@ -126,8 +122,6 @@ async def process_droch(message: types.Message, get_user, save_db):
 
     # --- ЛОГИКА СЧЕТЧИКОВ И РАНГА ---
     chat_stats["masturbations_count"] += 1
-
-    # Исправляем и обновляем общий стаж
     total_droch = get_real_total(user) + 1
     user["total_droch_count"] = total_droch
 
@@ -159,7 +153,6 @@ async def process_droch(message: types.Message, get_user, save_db):
 
     await save_db(message.from_user.id, user)
 
-    # Ответ
     res_text = f"Ты успешно вздрочнул! 😼\nНа твоем счету <b>{chat_stats['masturbations_count']}</b> вздрочки."
     if dispenser_triggered:
         res_text += "\n\n🚰 Дозатор спрея сработал!"
@@ -174,22 +167,18 @@ async def cmd_me(message: types.Message, get_user):
     user = await get_user(message.from_user.id, message.from_user.username)
     chat_id = str(message.chat.id)
     chats_data = user.get("chats_data", {})
+    inv = ensure_inv_dict(user)  # Берем инвентарь
 
-    # Считаем реальный общий стаж (для ранга)
+    # Считаем данные
     total_global = get_real_total(user)
     rank = get_current_rank(total_global)
 
-    # Считаем сумму ТОЛЬКО в группах (для синхронизации с /topdroch)
-    total_in_groups = sum(
-        c.get("masturbations_count", 0)
-        for cid, c in chats_data.items()
-        if int(cid) < 0
-    )
+    # Достаем ФармКоин из инвентаря (по эмодзи 💰 как в твоем коде)
+    farmcoin_count = inv.get(FARMCOIN_EMOJI, 0)
 
-    farmcoin_count = user.get("farm_coins", 0)
+    total_in_groups = sum(c.get("masturbations_count", 0) for cid, c in chats_data.items() if int(cid) < 0)
     balance = user.get("balance", 0)
     total_farmed = user.get("total_farm_coins", 0)
-
     current_date = get_current_date_str()
     daily_droch = user.get("daily_stats", {}).get(current_date, 0)
     chat_droch = chats_data.get(chat_id, {}).get("masturbations_count", 0)
@@ -197,21 +186,22 @@ async def cmd_me(message: types.Message, get_user):
     text = (
         f"👤 <b>Профиль:</b> {html.escape(message.from_user.full_name)}\n"
         f"━━━━━━━━━━━━━━\n"
-        
+        f"🎖 <b>Звание:</b> {rank}\n\n"
         f"{FARMCOIN_EMOJI} ФармКоин: <b>{farmcoin_count:,}</b>\n"
+        f"💰 Баланс: <b>{balance:,}</b> 🪙\n"
         f"📈 Всего нафармлено: <b>{total_farmed:,}</b> 🪙\n"
         f"━━━━━━━━━━━━━━\n"
-        f"🎖 <b>Звание:</b> {rank}\n"
         f"📊 <b>Статистика дрочки:</b>\n"
         f"├ В этом чате: <code>{chat_droch}</code>\n"
-        f"├ 🔥 За сегодня: <b>{daily_droch}</b> \n"
-        f"└ 🏆 Всего в группах (ТОП): <b>{total_in_groups}</b> \n"
+        f"├ За сегодня: <b>{daily_droch}</b> 🔥\n"
+        f"├ Всего в группах (ТОП): <b>{total_in_groups}</b> 🏆\n"
+        f"└ Общий стаж (РАНГ): <b>{total_global}</b>"
     )
 
     await message.reply(text, parse_mode="HTML")
 
 
-# --- КОМАНДЫ ДРОЧКИ ---
+# --- КОМАНДЫ ---
 @router.message(Command("drochnut", "дрочнуть"))
 async def cmd_drochnut(message: types.Message, get_user, save_db):
     await process_droch(message, get_user, save_db)
