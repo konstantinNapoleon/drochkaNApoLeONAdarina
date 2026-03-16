@@ -17,7 +17,7 @@ async def cmd_post(message: types.Message, bot: Bot, get_all_users):
         return await message.answer("❌ У тебя нет прав администратора.")
 
     # --- НАСТРОЙКИ РАССЫЛКИ ---
-    PHOTO_URL = "https://yapx.ru/album/dLV8e.jpg"
+    PHOTO_URL = "https://iimg.su/i/JzGZhL.jpg"
     link_text = "Если вас нет в наших ресурсах, то скорее нажминайте кнопку и вступайте 👇"
 
     # Создаем кнопки напрямую через InlineKeyboardMarkup (так надежнее)
