@@ -1,10 +1,11 @@
 import time
+import html
 from datetime import datetime, timezone, timedelta
 from aiogram import types, F, Router
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-# Импортируем расчет баффов
+# Импортируем расчет баффов (убедись, что путь верный)
 from handlers.etel import get_user_buffs
 
 router = Router()
@@ -31,7 +32,6 @@ RANKS = {
 
 
 def get_current_rank(droch_count: int) -> str:
-    """Определяет актуальный ранг на основе общего количества дрочек."""
     current_rank = "👶 Новичок"
     for count in sorted(RANKS.keys()):
         if droch_count >= count:
@@ -43,6 +43,17 @@ def get_current_rank(droch_count: int) -> str:
 
 def get_current_date_str():
     return datetime.now(MSK_TZ).strftime("%Y-%m-%d")
+
+
+def get_real_total(user) -> int:
+    """
+    Суммирует все дрочки из всех чатов (chats_data).
+    Это исправляет проблему 'Школьника' у старых игроков.
+    """
+    chats_data = user.get("chats_data", {})
+    total_from_chats = sum(c.get("masturbations_count", 0) for c in chats_data.values())
+    # Возвращаем максимум между сохраненным полем и реальной суммой из чатов
+    return max(user.get("total_droch_count", 0), total_from_chats)
 
 
 def ensure_inv_dict(user) -> dict:
@@ -76,7 +87,7 @@ async def process_droch(message: types.Message, get_user, save_db):
     spray_count = inv.get("💦", 0)
     current_time = time.time()
 
-    # --- ПРОВЕРКА ПОЯСА ВЕРНОСТИ ---
+    # --- ПРОВЕРКА ПОЯСА ---
     belt_expire = user.get("belt_expire_time", 0)
     if current_time < belt_expire:
         remaining = int(belt_expire - current_time)
@@ -87,9 +98,9 @@ async def process_droch(message: types.Message, get_user, save_db):
             parse_mode="HTML"
         )
 
-    # --- РАСЧЕТ ДИНАМИЧЕСКОГО КД ---
+    # --- КД ---
     buffs = get_user_buffs(user)
-    BASE_COOLDOWN = 1800  # 30 минут
+    BASE_COOLDOWN = 1800
     current_cooldown = int(BASE_COOLDOWN / buffs["stamina_multiplier"])
 
     if "chats_data" not in user:
@@ -103,31 +114,24 @@ async def process_droch(message: types.Message, get_user, save_db):
     last_time = chat_stats.get("last_droch_time", 0)
     time_passed = current_time - last_time
 
-    # Проверяем КД
     if time_passed < current_cooldown:
         remaining_seconds = int(current_cooldown - time_passed)
         minutes = remaining_seconds // 60
         seconds = remaining_seconds % 60
-
-        buff_text = ""
-        if buffs["stamina_multiplier"] > 1.0:
-            percent = int((buffs["stamina_multiplier"] - 1.0) * 100)
-            buff_text = f"\n<i>(Твое КД снижено на {percent}% благодаря баффам!)</i>"
-
         return await message.reply(
-            f"Ты недавно дрочил! 🤕 \n"
-            f"Приходи через <b>{minutes} мин. {seconds} сек.</b>{buff_text}",
+            f"Ты недавно дрочил! 🤕 \nПриходи через <b>{minutes} мин. {seconds} сек.</b>",
             reply_markup=get_spray_markup(spray_count, message.from_user.id),
             parse_mode="HTML"
         )
 
-    # Обновление статистики (в текущем чате)
+    # --- ЛОГИКА СЧЕТЧИКОВ И РАНГА ---
     chat_stats["masturbations_count"] += 1
 
-    # --- ОБНОВЛЕНИЕ РАНГА (С поддержкой старых игроков) ---
-    old_rank = user.get("rank", "👶 Новичок")
-    total_droch = user.get("total_droch_count", 0) + 1
+    # Исправляем и обновляем общий стаж
+    total_droch = get_real_total(user) + 1
     user["total_droch_count"] = total_droch
+
+    old_rank = user.get("rank", "👶 Новичок")
     current_calculated_rank = get_current_rank(total_droch)
 
     if current_calculated_rank != old_rank:
@@ -138,10 +142,9 @@ async def process_droch(message: types.Message, get_user, save_db):
             parse_mode="HTML"
         )
 
-    # --- ЛОГИКА ДОЗАТОРА СПРЕЯ ---
+    # --- СПРЕИ ---
     dispenser_active = user.get("spray_dispenser_active", False)
     dispenser_triggered = False
-
     if dispenser_active and inv.get("🚰", 0) > 0 and inv.get("💦", 0) > 0:
         inv["💦"] -= 1
         chat_stats["last_droch_time"] = 0
@@ -151,114 +154,65 @@ async def process_droch(message: types.Message, get_user, save_db):
 
     if "daily_stats" not in user:
         user["daily_stats"] = {}
-
     current_date = get_current_date_str()
-    current_daily = user["daily_stats"].get(current_date, 0)
-    user["daily_stats"][current_date] = current_daily + 1
-
-    if "achievements" not in user or not isinstance(user["achievements"], list):
-        user["achievements"] = []
-    if "first_droch" not in user["achievements"]:
-        user["achievements"].append("first_droch")
-        await message.answer("🎊 НОВОЕ ДОСТИЖЕНИЕ: ✊ Первая дрочка!")
+    user["daily_stats"][current_date] = user["daily_stats"].get(current_date, 0) + 1
 
     await save_db(message.from_user.id, user)
 
-    # --- ФОРМИРУЕМ ОТВЕТ ---
+    # Ответ
+    res_text = f"Ты успешно вздрочнул! 😼\nНа твоем счету <b>{chat_stats['masturbations_count']}</b> вздрочки."
     if dispenser_triggered:
-        reply_text = (
-            f"Ты успешно вздрочнул! 😼\n"
-            f"На твоем счету <b>{chat_stats['masturbations_count']}</b> вздрочки.\n\n"
-            f"🚰 Дозатор спрея сработал и теперь можешь дрочить ещё раз!"
-        )
-        await message.reply(reply_text, parse_mode="HTML")
-    else:
-        reply_text = (
-            f"Ты успешно вздрочнул! 😼\n"
-            f"На твоем счету <b>{chat_stats['masturbations_count']}</b> вздрочки."
-        )
-        await message.reply(reply_text, reply_markup=get_spray_markup(inv.get("💦", 0), message.from_user.id),
-                            parse_mode="HTML")
+        res_text += "\n\n🚰 Дозатор спрея сработал!"
+
+    await message.reply(res_text, parse_mode="HTML",
+                        reply_markup=None if dispenser_triggered else get_spray_markup(inv.get("💦", 0),
+                                                                                       message.from_user.id))
 
 
 @router.message(Command("me"))
 async def cmd_me(message: types.Message, get_user):
-  user = await get_user(message.from_user.id, message.from_user.username)
-  chat_id = str(message.chat.id)
-  chats_data = user.get("chats_data", {})
+    user = await get_user(message.from_user.id, message.from_user.username)
+    chat_id = str(message.chat.id)
+    chats_data = user.get("chats_data", {})
 
-  # 1. Считаем "Всего в группах" (как в /topdroch)
-  total_in_groups = sum(
-    chat_stats.get("masturbations_count", 0)
-    for cid, chat_stats in chats_data.items()
-    if int(cid) < 0
-  )
+    # Считаем реальный общий стаж (для ранга)
+    total_global = get_real_total(user)
+    rank = get_current_rank(total_global)
 
-  # 2. Считаем "Всего везде" (включая личку)
-  total_global = user.get("total_droch_count", 0)
+    # Считаем сумму ТОЛЬКО в группах (для синхронизации с /topdroch)
+    total_in_groups = sum(
+        c.get("masturbations_count", 0)
+        for cid, c in chats_data.items()
+        if int(cid) < 0
+    )
 
-  # 3. Дрочки за сегодня (как в /topdroch сегодня)
-  current_date = get_current_date_str()
-  daily_droch = user.get("daily_stats", {}).get(current_date, 0)
+    farmcoin_count = user.get("farm_coins", 0)
+    balance = user.get("balance", 0)
+    total_farmed = user.get("total_farm_coins", 0)
 
-  # 4. Дрочки в этом конкретном чате
-  chat_droch = chats_data.get(chat_id, {}).get("masturbations_count", 0)
+    current_date = get_current_date_str()
+    daily_droch = user.get("daily_stats", {}).get(current_date, 0)
+    chat_droch = chats_data.get(chat_id, {}).get("masturbations_count", 0)
 
-  # Остальные данные
-  rank = get_current_rank(total_global)
-  farmcoin_count = user.get("farm_coins", 0)
-  balance = user.get("balance", 0)
+    text = (
+        f"👤 <b>Профиль:</b> {html.escape(message.from_user.full_name)}\n"
+        f"━━━━━━━━━━━━━━\n"
+        f"🎖 <b>Звание:</b> {rank}\n\n"
+        f"{FARMCOIN_EMOJI} ФармКоин: <b>{farmcoin_count:,}</b>\n"
+        f"💰 Баланс: <b>{balance:,}</b> 🪙\n"
+        f"📈 Всего нафармлено: <b>{total_farmed:,}</b> 🪙\n"
+        f"━━━━━━━━━━━━━━\n"
+        f"📊 <b>Статистика дрочки:</b>\n"
+        f"├ В этом чате: <code>{chat_droch}</code>\n"
+        f"├ За сегодня: <b>{daily_droch}</b> 🔥\n"
+        f"├ Всего в группах (ТОП): <b>{total_in_groups}</b> 🏆\n"
+        f"└ Общий стаж (РАНГ): <b>{total_global}</b>"
+    )
 
-  text = (
-    f"👤 <b>Профиль:</b> {message.from_user.full_name}\n"
-    f"━━━━━━━━━━━━━━\n"
-    f"🎖 <b>Звание:</b> {rank}\n\n"
-    f"{FARMCOIN_EMOJI} ФармКоин: <b>{farmcoin_count:,}</b>\n"
-    f"💰 Баланс: <b>{balance:,}</b> 🪙\n"
-    f"━━━━━━━━━━━━━━\n"
-    f"📊 <b>Статистика дрочки:</b>\n"
-    f"├ В этом чате: <code>{chat_droch}</code>\n"
-    f"├ За сегодня: <b>{daily_droch}</b> 🔥\n"
-    f"├ Всего (в топе): <b>{total_in_groups}</b> 🏆\n"
-    f"└ Общий стаж: <code>{total_global}</code>"
-  )
-
-  await message.reply(text, parse_mode="HTML")
+    await message.reply(text, parse_mode="HTML")
 
 
-
-@router.callback_query(F.data.startswith("use_spray_callback:"))
-async def callback_use_spray(callback: types.CallbackQuery, get_user, save_db):
-    _, owner_id = callback.data.split(":")
-    if callback.from_user.id != int(owner_id):
-        return await callback.answer("Это не твой спрей!", show_alert=True)
-
-    user = await get_user(callback.from_user.id, callback.from_user.username)
-    current_time = time.time()
-
-    if current_time < user.get("belt_expire_time", 0):
-        return await callback.answer("Пояс верности мешает использовать спрей! 🔒", show_alert=True)
-
-    chat_id = str(callback.message.chat.id)
-    inv = ensure_inv_dict(user)
-    buffs = get_user_buffs(user)
-    current_cooldown = int(1800 / buffs["stamina_multiplier"])
-
-    chat_stats = user.get("chats_data", {}).get(chat_id)
-    if not chat_stats:
-        return await callback.answer("Ошибка данных чата.")
-
-    last_time = chat_stats.get("last_droch_time", 0)
-
-    if (current_time - last_time) < current_cooldown:
-        inv["💦"] -= 1
-        chat_stats["last_droch_time"] = 0
-        await save_db(callback.from_user.id, user)
-        await callback.message.edit_text("Ты применил спрей. 👍 Жми: /drochnut")
-    else:
-        await callback.answer("Спрей тебе сейчас не нужен!")
-
-
+# --- КОМАНДЫ ДРОЧКИ ---
 @router.message(Command("drochnut", "дрочнуть"))
 async def cmd_drochnut(message: types.Message, get_user, save_db):
     await process_droch(message, get_user, save_db)
@@ -269,30 +223,22 @@ async def text_drochnut(message: types.Message, get_user, save_db):
     await process_droch(message, get_user, save_db)
 
 
-@router.message(F.text.lower() == "юз 💦")
-async def use_spray_cmd(message: types.Message, get_user, save_db):
-    user = await get_user(message.from_user.id, message.from_user.username)
-    current_time = time.time()
-
-    if current_time < user.get("belt_expire_time", 0):
-        return await message.reply("Пояс верности мешает использовать спрей! 🔒")
-
-    chat_id = str(message.chat.id)
+@router.callback_query(F.data.startswith("use_spray_callback:"))
+async def callback_use_spray(callback: types.CallbackQuery, get_user, save_db):
+    _, owner_id = callback.data.split(":")
+    if callback.from_user.id != int(owner_id):
+        return await callback.answer("Это не твой спрей!", show_alert=True)
+    user = await get_user(callback.from_user.id, callback.from_user.username)
+    chat_id = str(callback.message.chat.id)
     inv = ensure_inv_dict(user)
-    buffs = get_user_buffs(user)
-    current_cooldown = int(1800 / buffs["stamina_multiplier"])
-
-    if inv.get("💦", 0) <= 0:
-        return await message.reply("У тебя нет Спрея!")
-
-    chat_stats = user.get("chats_data", {}).get(chat_id, {"last_droch_time": 0})
-    if (current_time - chat_stats["last_droch_time"]) < current_cooldown:
+    chat_stats = user.get("chats_data", {}).get(chat_id)
+    if chat_stats:
         inv["💦"] -= 1
         chat_stats["last_droch_time"] = 0
-        await save_db(message.from_user.id, user)
-        await message.reply("Ты применил <b>спрей</b>! 🌼 Жми: /drochnut", parse_mode="HTML")
+        await save_db(callback.from_user.id, user)
+        await callback.message.edit_text("Спрей использован! Можно дрочить.")
     else:
-        await message.reply("Спрей сейчас не нужен!")
+        await callback.answer("Ошибка данных.")
 
 
 
