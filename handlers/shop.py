@@ -162,6 +162,12 @@ async def process_buy_command(message: types.Message):
 
     total_price = price * amount
 
+    # --- ЛОГИКА СКИДКИ ---
+    discount_text = ""
+    if total_price >= 5000:
+        total_price = int(total_price * 0.7)  # Скидка 30%
+        discount_text = " (Скидка 30% 🔥)"
+
     builder = InlineKeyboardBuilder()
     builder.row(
         types.InlineKeyboardButton(text="Подтвердить ✅",
@@ -172,7 +178,7 @@ async def process_buy_command(message: types.Message):
     )
 
     await message.reply(
-        f"Вы уверены, что хотите купить <b>{amount} {item_emoji} {item_info.get('name')}</b> за <b>{total_price:,}</b> 💰?",
+        f"Вы уверены, что хотите купить <b>{amount} {item_emoji} {item_info.get('name')}</b> за <b>{total_price:,}</b> 💰{discount_text}?",
         reply_markup=builder.as_markup(),
         parse_mode="HTML"
     )
@@ -193,6 +199,10 @@ async def buy_confirmed(callback: types.CallbackQuery, get_user, save_db):
         return await callback.answer("❌ Этот предмет больше не продается.", show_alert=True)
 
     total_price = item_info.get("price") * amount
+
+    # --- ЛОГИКА СКИДКИ ПРИ СПИСАНИИ ---
+    if total_price >= 5000:
+        total_price = int(total_price * 0.7)
 
     if not spend_farmcoins(user, total_price):
         have = get_farmcoins(user)
