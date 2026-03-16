@@ -183,36 +183,48 @@ async def process_droch(message: types.Message, get_user, save_db):
 
 @router.message(Command("me"))
 async def cmd_me(message: types.Message, get_user):
-    user = await get_user(message.from_user.id, message.from_user.username)
-    chat_id = str(message.chat.id)
+  user = await get_user(message.from_user.id, message.from_user.username)
+  chat_id = str(message.chat.id)
+  chats_data = user.get("chats_data", {})
 
-    # Данные
-    total_droch = user.get("total_droch_count", 0)
-    rank = get_current_rank(total_droch)
-    farmcoin_count = user.get("farm_coins", 0)
-    balance = user.get("balance", 0)
-    total_farmed = user.get("total_farm_coins", 0)
+  # 1. Считаем "Всего в группах" (как в /topdroch)
+  total_in_groups = sum(
+    chat_stats.get("masturbations_count", 0)
+    for cid, chat_stats in chats_data.items()
+    if int(cid) < 0
+  )
 
-    # Статистика дрочки
-    current_date = get_current_date_str()
-    daily_droch = user.get("daily_stats", {}).get(current_date, 0)
-    chat_droch = user.get("chats_data", {}).get(chat_id, {}).get("masturbations_count", 0)
+  # 2. Считаем "Всего везде" (включая личку)
+  total_global = user.get("total_droch_count", 0)
 
-    # Формируем сообщение
-    text = (
-        f"👤 <b>Профиль:</b> {message.from_user.full_name}\n"
-        f"━━━━━━━━━━━━━━\n"
-        f"🎖 <b>Звание:</b> {rank}\n\n"
-        f"{FARMCOIN_EMOJI} ФармКоин: <b>{farmcoin_count:,}</b>\n\n"
-        f"💰 Баланс: <b>{balance:,}</b> 🪙\n"
-        f"📈 Всего нафармлено: <b>{total_farmed:,}</b> 🪙\n\n"
-        f"📊 <b>Статистика дрочки:</b>\n"
-        f"├ В этом чате: <code>{chat_droch}</code>\n"
-        f"├ За сегодня: <code>{daily_droch}</code>\n"
-        f"└ Всего: <b>{total_droch}</b>"
-    )
+  # 3. Дрочки за сегодня (как в /topdroch сегодня)
+  current_date = get_current_date_str()
+  daily_droch = user.get("daily_stats", {}).get(current_date, 0)
 
-    await message.reply(text, parse_mode="HTML")
+  # 4. Дрочки в этом конкретном чате
+  chat_droch = chats_data.get(chat_id, {}).get("masturbations_count", 0)
+
+  # Остальные данные
+  rank = get_current_rank(total_global)
+  farmcoin_count = user.get("farm_coins", 0)
+  balance = user.get("balance", 0)
+
+  text = (
+    f"👤 <b>Профиль:</b> {message.from_user.full_name}\n"
+    f"━━━━━━━━━━━━━━\n"
+    f"🎖 <b>Звание:</b> {rank}\n\n"
+    f"{FARMCOIN_EMOJI} ФармКоин: <b>{farmcoin_count:,}</b>\n"
+    f"💰 Баланс: <b>{balance:,}</b> 🪙\n"
+    f"━━━━━━━━━━━━━━\n"
+    f"📊 <b>Статистика дрочки:</b>\n"
+    f"├ В этом чате: <code>{chat_droch}</code>\n"
+    f"├ За сегодня: <b>{daily_droch}</b> 🔥\n"
+    f"├ Всего (в топе): <b>{total_in_groups}</b> 🏆\n"
+    f"└ Общий стаж: <code>{total_global}</code>"
+  )
+
+  await message.reply(text, parse_mode="HTML")
+
 
 
 @router.callback_query(F.data.startswith("use_spray_callback:"))
