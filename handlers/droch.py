@@ -81,7 +81,6 @@ def get_spray_markup(spray_count: int, user_id: int):
 
 def get_me_markup(user_id: int):
     builder = InlineKeyboardBuilder()
-    builder.button(text="🎒 Инвентарь", callback_data=f"inv_page_{user_id}_0_back")
     builder.button(text="❌ Закрыть", callback_data=f"inv_close_{user_id}")
     builder.adjust(1)
     return builder.as_markup()
