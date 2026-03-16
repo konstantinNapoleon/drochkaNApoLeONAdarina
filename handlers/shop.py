@@ -176,7 +176,7 @@ async def process_buy_command(message: types.Message):
     )
 
     await message.reply(
-        f"Вы уверены, что хотите купить <b>{amount} {item_emoji} {item_info.get('name')}</b> за <b>{total_price:,}</b> 💰{discount_text}?",
+        f"Вы уверены, что хотите купить <b>{amount} {item_emoji} {item_info.get('name')}</b> за <b>{total_price:,}</b> 💰?{discount_text}",
         reply_markup=builder.as_markup(),
         parse_mode="HTML"
     )
