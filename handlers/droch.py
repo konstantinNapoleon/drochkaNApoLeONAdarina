@@ -90,20 +90,21 @@ def get_me_text(user, chat_id: str, full_name: str):
     chats_data = user.get("chats_data", {})
     inv = ensure_inv_dict(user)
 
+    # Получаем баффы (стамина и удача)
+    buffs = get_user_buffs(user)
+
+    # Вычисляем проценты бонусов (множитель 1.15 = 15%)
+    stamina_bonus = int((buffs["stamina_multiplier"] - 1.0) * 100)
+    luck_bonus = int((buffs["luck_multiplier"] - 1.0) * 100)
+
     total_global = get_real_total(user)
     rank = get_current_rank(total_global)
     farmcoin_count = inv.get(FARMCOIN_EMOJI, 0)
-
-    # СТРЕСС
     stress = user.get("stress", 0)
 
-    # Синхронизация с ТОПом (только группы)
+    # Синхронизация с ТОПом
     total_in_groups = sum(c.get("masturbations_count", 0) for cid, c in chats_data.items() if int(cid) < 0)
-
-    balance = user.get("balance", 0)
-    total_farmed = user.get("total_farm_coins", 0)
-    current_date = get_current_date_str()
-    daily_droch = user.get("daily_stats", {}).get(current_date, 0)
+    daily_droch = user.get("daily_stats", {}).get(get_current_date_str(), 0)
     chat_droch = chats_data.get(chat_id, {}).get("masturbations_count", 0)
 
     return (
@@ -111,6 +112,10 @@ def get_me_text(user, chat_id: str, full_name: str):
         f"━━━━━━━━━━━━━━\n"
         f"🎖 <b>Звание:</b> {rank}\n\n"
         f"{FARMCOIN_EMOJI} ФармКоин: <b>{farmcoin_count:,}</b>\n"
+        f"━━━━━━━━━━━━━━\n"
+        f"🦾 <b>Характеристики</b>\n"
+        f"├ 🧤 Выносливость: <b>{stamina_bonus}%</b>\n"
+        f"└ 🍀 Удача: <b>{luck_bonus}%</b>\n"
         f"━━━━━━━━━━━━━━\n"
         f"📊 <b>Статистика дрочки:</b>\n"
         f"├ 🧘 Стресс: <b>{stress}%</b>\n"
