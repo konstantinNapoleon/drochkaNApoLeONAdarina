@@ -1,11 +1,10 @@
 import html
-from datetime import datetime, timezone, timedelta, date
+from datetime import datetime, timezone, timedelta
 from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 router = Router()
-
 MSK_TZ = timezone(timedelta(hours=3))
 
 
@@ -13,12 +12,8 @@ def get_current_date_str():
     return datetime.now(MSK_TZ).strftime("%Y-%m-%d")
 
 
-# --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ КНОПОК ---
 def get_top_kb(current_view="users"):
-    """Создает клавиатуру 2x2."""
     builder = InlineKeyboardBuilder()
-
-    # Кнопки в рядах по 2
     builder.row(
         types.InlineKeyboardButton(text="👤 Игроки", callback_data="back_to_top_users"),
         types.InlineKeyboardButton(text="🏢 Чаты", callback_data="top_chats")
@@ -31,51 +26,39 @@ def get_top_kb(current_view="users"):
     return builder.as_markup()
 
 
-# --- ТОП ИГРОКОВ (ЗА ВСЕ ВРЕМЯ) ---
+# --- ВСЕ ВРЕМЯ (ТОП 15) ---
 @router.message(Command("topdroch", "топдроч"))
 async def cmd_top_droch(message: types.Message, get_all_users):
     all_users = await get_all_users()
-    drocher_scores = []
-    for user_id, user_data in all_users.items():
-        chats_data = user_data.get("chats_data", {})
-        total = sum(c.get("masturbations_count", 0) for cid, c in chats_data.items() if int(cid) < 0)
-        if total > 0:
-            name = user_data.get("first_name") or user_data.get("username") or f"Игрок {str(user_id)[-4:]}"
-            drocher_scores.append({"name": name, "score": total})
-    drocher_scores.sort(key=lambda x: x["score"], reverse=True)
-    if not drocher_scores: return await message.answer("Пока никто не дрочил! 🙄")
-    text = "🏆 <b>ТОП-10 ДРОЧЕРОВ (ВСЁ ВРЕМЯ):</b>\n\n" + "".join(
-        [f"<b>{i}.</b> {html.escape(str(u['name']))} — {u['score']} раз\n" for i, u in
-         enumerate(drocher_scores[:10], 1)])
+    scores = sorted([{"name": u.get("first_name") or u.get("username"), "score": sum(
+        c.get("masturbations_count", 0) for cid, c in u.get("chats_data", {}).items() if int(cid) < 0)} for u in
+                     all_users.values()], key=lambda x: x["score"], reverse=True)
+    text = "🏆 <b>ТОП-15 ДРОЧЕРОВ (ВСЁ ВРЕМЯ):</b>\n\n" + "".join(
+        [f"<b>{i}.</b> {html.escape(str(u['name']))} — {u['score']} раз\n" for i, u in enumerate(scores[:15], 1) if
+         u['score'] > 0])
     await message.answer(text, parse_mode="HTML", reply_markup=get_top_kb("users"))
 
 
-# --- ТОП ЗА НЕДЕЛЮ ---
+# --- НЕДЕЛЯ (ТОП 15) ---
 @router.callback_query(F.data == "top_week")
 async def process_top_week(callback: types.CallbackQuery, get_all_users):
     all_users = await get_all_users()
     week_scores = {}
     today = datetime.now(MSK_TZ)
     start_of_week = today - timedelta(days=today.weekday())
-
-    for user_id, user_data in all_users.items():
-        daily_stats = user_data.get("daily_stats", {})
-        total_week = 0
-        for d_str, count in daily_stats.items():
-            d = datetime.strptime(d_str, "%Y-%m-%d").replace(tzinfo=MSK_TZ)
-            if d >= start_of_week: total_week += count
+    for user_data in all_users.values():
+        total_week = sum(count for d_str, count in user_data.get("daily_stats", {}).items()
+                         if datetime.strptime(d_str, "%Y-%m-%d").replace(tzinfo=MSK_TZ) >= start_of_week)
         if total_week > 0:
-            name = user_data.get("first_name") or user_data.get("username") or f"Игрок {str(user_id)[-4:]}"
+            name = user_data.get("first_name") or user_data.get("username")
             week_scores[name] = week_scores.get(name, 0) + total_week
-
     sorted_scores = sorted(week_scores.items(), key=lambda x: x[1], reverse=True)
-    if not sorted_scores: return await callback.answer("На этой неделе еще пусто!", show_alert=True)
-    text = "📅 <b>ТОП-10 ДРОЧЕРОВ ЗА НЕДЕЛЮ:</b>\n\n" + "".join(
-        [f"<b>{i}.</b> {html.escape(str(n))} — {s} раз\n" for i, (n, s) in enumerate(sorted_scores[:10], 1)])
+    text = "📅 <b>ТОП-15 ДРОЧЕРОВ ЗА НЕДЕЛЮ:</b>\n\n" + "".join(
+        [f"<b>{i}.</b> {html.escape(str(n))} — {s} раз\n" for i, (n, s) in enumerate(sorted_scores[:15], 1)])
     await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_top_kb("week"))
 
 
-# --- ОСТАЛЬНЫЕ ТОПЫ (ЧАТЫ, СЕГОДНЯ) ---
+# --- ЧАТЫ (ТОП 15) ---
 @router.callback_query(F.data == "top_chats")
 async def process_top_chats(callback: types.CallbackQuery, get_all_users):
     all_users = await get_all_users()
@@ -87,12 +70,13 @@ async def process_top_chats(callback: types.CallbackQuery, get_all_users):
                 if count > 0:
                     chat_totals.setdefault(chat_id, {"name": chat_stats.get("chat_name"), "score": 0})["score"] += count
     sorted_chats = sorted(chat_totals.values(), key=lambda x: x["score"], reverse=True)
-    text = "🏢 <b>ТОП ЧАТОВ:</b>\n\n" + "".join(
+    text = "🏢 <b>ТОП-15 ЧАТОВ:</b>\n\n" + "".join(
         [f"<b>{i}.</b> {html.escape(str(c['name'] or 'Группа'))} — {c['score']} раз\n" for i, c in
-         enumerate(sorted_chats[:10], 1)])
+         enumerate(sorted_chats[:15], 1)])
     await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_top_kb("chats"))
 
 
+# --- СЕГОДНЯ (ТОП 15) ---
 @router.callback_query(F.data == "top_today")
 async def process_top_today(callback: types.CallbackQuery, get_all_users):
     all_users = await get_all_users()
@@ -100,20 +84,19 @@ async def process_top_today(callback: types.CallbackQuery, get_all_users):
     scores = sorted(
         [{"name": u.get("first_name") or u.get("username"), "score": u.get("daily_stats", {}).get(today, 0)} for u in
          all_users.values() if u.get("daily_stats", {}).get(today, 0) > 0], key=lambda x: x["score"], reverse=True)
-    text = "🔥 <b>ТОП ЗА СЕГОДНЯ:</b>\n\n" + "".join(
-        [f"<b>{i}.</b> {html.escape(str(u['name']))} — {u['score']} раз\n" for i, u in enumerate(scores[:10], 1)])
+    text = "🔥 <b>ТОП-15 ЗА СЕГОДНЯ:</b>\n\n" + "".join(
+        [f"<b>{i}.</b> {html.escape(str(u['name']))} — {u['score']} раз\n" for i, u in enumerate(scores[:15], 1)])
     await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_top_kb("today"))
 
 
 @router.callback_query(F.data == "back_to_top_users")
 async def back_to_users(callback: types.CallbackQuery, get_all_users):
-    # Повтор логики cmd_top_droch для кнопки
     all_users = await get_all_users()
     scores = sorted([{"name": u.get("first_name") or u.get("username"), "score": sum(
         c.get("masturbations_count", 0) for cid, c in u.get("chats_data", {}).items() if int(cid) < 0)} for u in
                      all_users.values()], key=lambda x: x["score"], reverse=True)
-    text = "🏆 <b>ТОП-10 ДРОЧЕРОВ (ВСЁ ВРЕМЯ):</b>\n\n" + "".join(
-        [f"<b>{i}.</b> {html.escape(str(u['name']))} — {u['score']} раз\n" for i, u in enumerate(scores[:10], 1) if
+    text = "🏆 <b>ТОП-15 ДРОЧЕРОВ (ВСЁ ВРЕМЯ):</b>\n\n" + "".join(
+        [f"<b>{i}.</b> {html.escape(str(u['name']))} — {u['score']} раз\n" for i, u in enumerate(scores[:15], 1) if
          u['score'] > 0])
     await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_top_kb("users"))
 
