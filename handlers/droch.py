@@ -110,10 +110,10 @@ def get_me_text(user, chat_id: str, full_name: str):
     return (
         f"👤 <b>Профиль:</b> {html.escape(full_name)}\n"
         f"━━━━━━━━━━━━━━\n"
-        f"🎖 <b>Звание:</b> {rank}\n\n"
+        f"🎖 <b>Позывной:</b> {rank}\n\n"
         f"{FARMCOIN_EMOJI} ФармКоин: <b>{farmcoin_count:,}</b>\n"
         f"━━━━━━━━━━━━━━\n"
-        f"🦾 <b>Характеристики</b>\n"
+        f"💪 <b>Характеристики:</b>\n"
         f"├ 🧤 Выносливость: <b>{stamina_bonus}%</b>\n"
         f"└ 🍀 Удача: <b>{luck_bonus}%</b>\n"
         f"━━━━━━━━━━━━━━\n"
