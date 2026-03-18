@@ -14,7 +14,7 @@ POPPIT_STICKERS = [
 CAT_STICKER_ID = ["CAACAgIAAxkBAAEQxkZpunAQzNfxqeo7ZHe8vEzqVJT7ZAACrRIAAiHm6ErMPS5b666L7ToE"]
 
 # Список предметов Pop It
-POPPIT_ITEMS = ["🔴", "🟢", "🟪", "🟠", "🟡", "🔵", "🟣", "💜", "🐈"]
+POPPIT_ITEMS = ["🔴", "🟢", "🟪", "🟠", "🟡", "🔵", "🟣", "💜"]
 
 USE_RESPONSES = {
     "🔑": "Ты снял пояс верности и теперь снова можешь дрочить! 🤩",
@@ -105,13 +105,24 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
         await message.answer_sticker(random.choice(POPPIT_STICKERS))
         return
 
-        # --- ЛОГИКА ДЛЯ КОТА ---
+    # --- ЛОГИКА ДЛЯ КОТА (С КД 10 МИНУТ) ---
     if item_emoji == "🐈":
+        last_use = user.get("last_cat_use_time", 0)
+        current_time = time.time()
+        cooldown = 600  # 10 минут в секундах
+
+        if current_time - last_use < cooldown:
+            remaining = int((cooldown - (current_time - last_use)) / 60)
+            remaining_sec = int((cooldown - (current_time - last_use)) % 60)
+            return await message.reply(
+                f"🐈 <b>Кот наигрался и отдыхает.</b>\nСможешь погладить через {remaining} мин {remaining_sec} сек.",
+                parse_mode="HTML")
+
         user["stress"] = 0
-        inv_dict[item_emoji] -= 1
+        user["last_cat_use_time"] = current_time
         await save_db(message.from_user.id, user)
         await message.reply("Ты погладил своего кота! 🎏✨ Стресс на нуле.", parse_mode="HTML")
-        await message.answer_sticker(CAT_STICKER_ID)  # Отдельный стикер для кота
+        await message.answer_sticker(CAT_STICKER_ID)
         return
 
     # --- СПЕЦИАЛЬНАЯ ЛОГИКА ДЛЯ ДОЗАТОРА ---
