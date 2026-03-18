@@ -95,21 +95,11 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
     if item_count <= 0:
         return await message.reply("❌ <b>У тебя нету такого предмета.</b>", parse_mode="HTML")
 
-    # --- НОВАЯ ЛОГИКА ДЛЯ POP IT И КОТА (СНЯТИЕ СТРЕССА) ---
-    # --- ЛОГИКА ДЛЯ POP IT ---
-    if item_emoji in POPPIT_ITEMS:
-        user["stress"] = 0
-        inv_dict[item_emoji] -= 1
-        await save_db(message.from_user.id, user)
-        await message.reply("Ты пощёлкал Pop It, стресс снижен до нуля. Жми: /drochnut", parse_mode="HTML")
-        await message.answer_sticker(random.choice(POPPIT_STICKERS))
-        return
-
-    # --- ЛОГИКА ДЛЯ КОТА (С КД 10 МИНУТ) ---
+        # --- 1. ПЕРВЫМ ДЕЛОМ ПРОВЕРЯЕМ КОТА ---
     if item_emoji == "🐈":
         last_use = user.get("last_cat_use_time", 0)
         current_time = time.time()
-        cooldown = 600  # 10 минут в секундах
+        cooldown = 600  # 10 минут
 
         if current_time - last_use < cooldown:
             remaining = int((cooldown - (current_time - last_use)) / 60)
@@ -123,6 +113,15 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
         await save_db(message.from_user.id, user)
         await message.reply("Ты погладил своего кота! 🎏✨ Стресс на нуле.", parse_mode="HTML")
         await message.answer_sticker(CAT_STICKER_ID)
+        return
+
+        # --- 2. ЗАТЕМ ПРОВЕРЯЕМ POP IT ---
+    if item_emoji in POPPIT_ITEMS:
+        user["stress"] = 0
+        inv_dict[item_emoji] -= 1
+        await save_db(message.from_user.id, user)
+        await message.reply("Ты пощёлкал Pop It, стресс снижен до нуля. Жми: /drochnut", parse_mode="HTML")
+        await message.answer_sticker(random.choice(POPPIT_STICKERS))
         return
 
     # --- СПЕЦИАЛЬНАЯ ЛОГИКА ДЛЯ ДОЗАТОРА ---
