@@ -8,14 +8,13 @@ from items import GAME_ITEMS
 router = Router()
 
 # СЮДА ВСТАВЬ FILE ID СТИКЕРА (узнать через @idstickerbot)
-POPPIT_STICKER_ID = [
+POPPIT_STICKERS = [
     "CAACAgIAAxkBAAEQxE1puHx0R6iBBX-FirEhnYj38TLOFQACMg4AAm1c0Ei6RlcE9wmVFToE"
-    "CAACAgIAAxkBAAEQxE9puHx4ZPseY5FAjpXGbKYzH3XnFAACfQ0AAlqVyUhX2bGXI1oDmzoE"
     ]
-
+CAT_STICKER_ID = ["CAACAgIAAxkBAAEQxkZpunAQzNfxqeo7ZHe8vEzqVJT7ZAACrRIAAiHm6ErMPS5b666L7ToE"]
 
 # Список предметов Pop It
-POPPIT_ITEMS = ["🔴", "🟢", "🟪", "🟠", "🟡", "🔵", "🟣", "💜"]
+POPPIT_ITEMS = ["🔴", "🟢", "🟪", "🟠", "🟡", "🔵", "🟣", "💜", "🐈"]
 
 USE_RESPONSES = {
     "🔑": "Ты снял пояс верности и теперь снова можешь дрочить! 🤩",
@@ -96,15 +95,23 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
     if item_count <= 0:
         return await message.reply("❌ <b>У тебя нету такого предмета.</b>", parse_mode="HTML")
 
-    # --- НОВАЯ ЛОГИКА ДЛЯ POP IT (СНЯТИЕ СТРЕССА) ---
+    # --- НОВАЯ ЛОГИКА ДЛЯ POP IT И КОТА (СНЯТИЕ СТРЕССА) ---
+    # --- ЛОГИКА ДЛЯ POP IT ---
     if item_emoji in POPPIT_ITEMS:
         user["stress"] = 0
         inv_dict[item_emoji] -= 1
         await save_db(message.from_user.id, user)
-
         await message.reply("Ты пощёлкал Pop It, стресс снижен до нуля. Жми: /drochnut", parse_mode="HTML")
-        if POPPIT_STICKER_ID:
-            await message.answer_sticker(POPPIT_STICKER_ID)
+        await message.answer_sticker(random.choice(POPPIT_STICKERS))
+        return
+
+        # --- ЛОГИКА ДЛЯ КОТА ---
+    if item_emoji == "🐈":
+        user["stress"] = 0
+        inv_dict[item_emoji] -= 1
+        await save_db(message.from_user.id, user)
+        await message.reply("Ты погладил своего кота! 🎏✨ Стресс на нуле.", parse_mode="HTML")
+        await message.answer_sticker(CAT_STICKER_ID)  # Отдельный стикер для кота
         return
 
     # --- СПЕЦИАЛЬНАЯ ЛОГИКА ДЛЯ ДОЗАТОРА ---
