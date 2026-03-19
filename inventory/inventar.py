@@ -134,7 +134,7 @@ async def process_close_inventory(callback: types.CallbackQuery):
 # --- БОНУС-КОДЫ ---
 
 BONUS_CODES = {
-  "https://t.me/addlist/-Pbm6oAnYtwzOWRi": {
+  "ОБНОВА": {
     "rewards": {"💰": 1500, "🍺": 10, "💦": 10},
     "limit": 100,
     "used_count": 0,
@@ -142,7 +142,7 @@ BONUS_CODES = {
     "claimed_by": set()
   },
 
-  "UKRAINE": {
+  "КАКАШКА": {
     "rewards": {"🇺🇦": 1},
     "limit": 100,
     "used_count": 0,
