@@ -1,5 +1,5 @@
 from aiogram import Router, types, F
-from aiogram.filters import Command
+from aiogram.filters import Command, CommandObject
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 router = Router()
@@ -10,6 +10,24 @@ ACHIEVEMENTS_LIST = {
         "emoji": "💦",
         "name": "Первая дрочка",
         "desc": "Вы сделали это в первый раз!"
+    },
+    "whore_winner": {
+        "slot": 2,
+        "emoji": "💋",
+        "name": "Победитель",
+        "desc": "Ты получил дрочки от шлюшек (первый выигрыш)."
+    },
+    "bug_hunter": {
+        "slot": 3,
+        "emoji": "🐞",
+        "name": "Баг-Хантер",
+        "desc": "Получил пиздюлей за багоюз."
+    },
+    "petuh": {
+        "slot": 4,
+        "emoji": "🐓",
+        "name": "Петух",
+        "desc": "Ты петух."
     },
     "registration": {
         "slot": 5,
@@ -26,6 +44,41 @@ ACHIEVEMENTS_LIST = {
 }
 
 
+# --- АДМИНСКАЯ КОМАНДА ДЛЯ БАГ-ХАНТЕРА ---
+@router.message(Command("ahiv"))
+async def admin_give_achievement(message: types.Message, command: CommandObject, get_user, save_db):
+    # Добавь сюда проверку на админа, если нужно: if message.from_user.id != ADMIN_ID: return
+    target_id = command.args
+    if not target_id:
+        return await message.reply("Укажи ID пользователя: <code>/ahiv 12345678</code>", parse_mode="HTML")
+
+    user = await get_user(int(target_id), None)
+    achievements = user.get("achievements", [])
+
+    if "bug_hunter" not in achievements:
+        achievements.append("bug_hunter")
+        user["achievements"] = achievements
+        await save_db(int(target_id), user)
+        await message.reply(f"✅ Ачивка 'Баг-Хантер' выдана пользователю {target_id}")
+    else:
+        await message.reply("У него уже есть эта ачивка.")
+
+
+# --- КОМАНДА ДЛЯ АЧИВКИ ПЕТУХ ---
+@router.message(F.text.lower() == "я петух")
+async def get_petuh_ach(message: types.Message, get_user, save_db):
+    user = await get_user(message.from_user.id, message.from_user.username)
+    achievements = user.get("achievements", [])
+
+    if "petuh" not in achievements:
+        achievements.append("petuh")
+        user["achievements"] = achievements
+        await save_db(message.from_user.id, user)
+        await message.reply("🐓 Ты получил ачивку: <b>Петух</b>!", parse_mode="HTML")
+
+
+# --- ОСТАЛЬНОЙ КОД (БЕЗ ИЗМЕНЕНИЙ) ---
+
 def get_grid_text(user_achievements):
     grid = ["⚫️"] * 9
     for ach_id in user_achievements:
@@ -41,18 +94,16 @@ def get_grid_text(user_achievements):
     )
 
 
-# --- 1. ВЫЗОВ МЕНЮ АЧИВОК (С автовыдачей старым игрокам) ---
 @router.message(Command("achievements"))
 @router.message(F.text.casefold() == "ачивки")
 async def show_achievements(message: types.Message, get_user, save_db):
     user = await get_user(message.from_user.id, message.from_user.username)
     user_achievements = user.get("achievements", [])
 
-    # АВТОВЫДАЧА СТАРЫМ ИГРОКАМ
     if "registration" not in user_achievements:
         user_achievements.append("registration")
         user["achievements"] = user_achievements
-        await save_db(message.from_user.id, user)  # Сохраняем в БД
+        await save_db(message.from_user.id, user)
 
     grid_text = get_grid_text(user_achievements)
     unlocked_count = sum(1 for ach in user_achievements if ach in ACHIEVEMENTS_LIST)
@@ -66,21 +117,16 @@ async def show_achievements(message: types.Message, get_user, save_db):
     await message.reply(text, parse_mode="HTML", reply_markup=kb)
 
 
-# --- 2. ПОКАЗ СПИСКА АЧИВОК (КНОПКА ➡️) ---
 @router.callback_query(F.data.startswith("achievements_page_list:"))
 async def process_achievements_list(callback: types.CallbackQuery, get_user):
     _, owner_id = callback.data.split(":")
-
-    if callback.from_user.id != int(owner_id):
-        return await callback.answer("Это не твои ачивки!", show_alert=True)
-
+    if callback.from_user.id != int(owner_id): return await callback.answer("Это не твои ачивки!", show_alert=True)
     user = await get_user(callback.from_user.id, callback.from_user.username)
     user_achievements = user.get("achievements", [])
-
     unlocked_achievements = [ach for ach in user_achievements if ach in ACHIEVEMENTS_LIST]
 
     if not unlocked_achievements:
-        text = "У вас пока нет открытых ачивок 😔\nНачните играть, чтобы открыть первую!"
+        text = "У вас пока нет открытых ачивок 😔"
     else:
         text = "📜 <b>Ваши открытые достижения:</b>\n\n"
         for ach_id in unlocked_achievements:
@@ -90,28 +136,20 @@ async def process_achievements_list(callback: types.CallbackQuery, get_user):
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="⬅️", callback_data=f"achievements_page_grid:{owner_id}")]
     ])
-
     await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
 
 
-# --- 3. ВОЗВРАТ К СЕТКЕ (КНОПКА ⬅️) ---
 @router.callback_query(F.data.startswith("achievements_page_grid:"))
 async def process_achievements_back(callback: types.CallbackQuery, get_user):
     _, owner_id = callback.data.split(":")
-
-    if callback.from_user.id != int(owner_id):
-        return await callback.answer("Это не твои ачивки!", show_alert=True)
-
+    if callback.from_user.id != int(owner_id): return await callback.answer("Это не твои ачивки!", show_alert=True)
     user = await get_user(callback.from_user.id, callback.from_user.username)
     user_achievements = user.get("achievements", [])
-
     grid_text = get_grid_text(user_achievements)
     unlocked_count = sum(1 for ach in user_achievements if ach in ACHIEVEMENTS_LIST)
-
     text = f"<b>Ачивки</b> 🌼\n\n{grid_text}\n\n🏆 Открыто: {unlocked_count}/{len(ACHIEVEMENTS_LIST)}"
-
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="➡️", callback_data=f"achievements_page_list:{owner_id}")]
     ])
-
     await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+
