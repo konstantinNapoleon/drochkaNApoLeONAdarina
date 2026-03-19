@@ -33,7 +33,7 @@ GAME_ITEMS = {
     },
     "📕": {
         "name": "Журнал “FamHub”",
-        "description": "Если вдруг не нашёл порнуху",
+        "description": "Если вдруг достала порнуха",
         "price": 7,
         "emoji": "📕"
     },

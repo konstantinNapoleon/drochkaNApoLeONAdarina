@@ -21,6 +21,7 @@ POPPIT_ITEMS = ["🔴", "🟢", "🟪", "🟠", "🟡", "🔵", "🟣", "💜"]
 USE_RESPONSES = {
     "🔑": "Ты снял пояс верности и теперь снова можешь дрочить! 🤩",
     "💉": "Тестостерон резко прилил к херу и ты можешь дрочить! 💪",
+    "📕": "Ты полистал журнал «FamHub» и вдохновился! Можно снова дрочить! 📕✨",
     "🛌": "Тссс... Ты спрятался от мамки и можешь дрочить! 👌",
     "🚛": "Ты сел в рейс с дядей Федором. Гони, гони, быстрее.",
     "🔰": "Ты потряс значком <b>Летофага</b> 🔰. Приехал 410 автобус и увез тебя в Лагерь Совенок. ",
@@ -163,6 +164,21 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
         inv_dict["🛌"] -= 1
         await save_db(message.from_user.id, user)
         return await message.reply(USE_RESPONSES["🛌"], parse_mode="HTML")
+
+      # ЖУРНАЛ
+    if item_emoji == "📕":
+        current_time = time.time()
+        if user.get("lock_reason") != "sadness" or current_time >= user.get("belt_expire_time", 0):
+            return await message.reply("Порнуха еще не надоела. Журнал пока не нужен. 😇", parse_mode="HTML")
+
+        user["belt_expire_time"] = 0
+        user["lock_reason"] = None
+        if "chats_data" in user and chat_id in user["chats_data"]:
+            user["chats_data"][chat_id]["last_droch_time"] = 0
+
+        inv_dict["📕"] -= 1
+        await save_db(message.from_user.id, user)
+        return await message.reply(USE_RESPONSES["📕"], parse_mode="HTML")
 
     # --- СПЕЦИАЛЬНАЯ ЛОГИКА ДЛЯ ДОЗАТОРА ---
     if item_emoji == "🚰":

@@ -178,6 +178,10 @@ async def process_droch(message: types.Message, get_user, save_db):
                 f"Твой хер всё ещё в коме... 🥀\nОсталось ждать <b>{hours}ч. {minutes}мин.</b>",
                 parse_mode="HTML"
             )
+        elif reason == "sadness":
+            return await message.reply(
+                f"Ты всё ещё грустишь потому что не нашел порнуху... 😭\nНастроение вернется через <b>{hours}ч. {minutes}мин.</b>",
+                parse_mode="HTML")
         else:
             return await message.reply(
                 f"На тебе пояс верности. 🔒 Ты не можешь дрочить ещё <b>{hours}ч. {minutes}мин.</b>!",
