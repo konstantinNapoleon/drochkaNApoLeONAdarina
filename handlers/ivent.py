@@ -1,3 +1,9 @@
+from aiogram import Router, F, types
+from aiogram.filters import Command
+
+router = Router()
+
+
 import random
 
 def get_random_event():

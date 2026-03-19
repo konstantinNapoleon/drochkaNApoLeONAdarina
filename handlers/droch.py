@@ -8,7 +8,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 # Импортируем расчет баффов
 from handlers.etel import get_user_buffs
-from handlers.ivent import get_random_event
+from ivent import get_random_event
 
 router = Router()
 
