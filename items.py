@@ -715,7 +715,7 @@ GAME_ITEMS = {
     },
     "🏴\u200d☠️": {
         "name": "Флаг пиратов",
-        "description": "Внезапно, для пиратов",
+        "description": "Я Джек Воробей",
         "price": 0,
         "emoji": "🏴\u200d☠️"
     },

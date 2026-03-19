@@ -142,7 +142,7 @@ BONUS_CODES = {
     "claimed_by": set()
   },
 
-  "КАКАШКА": {
+  "": {
     "rewards": {"🇺🇦": 1},
     "limit": 100,
     "used_count": 0,
