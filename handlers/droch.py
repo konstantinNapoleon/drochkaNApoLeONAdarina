@@ -1,5 +1,6 @@
 import time
 import html
+import random
 from datetime import datetime, timezone, timedelta
 from aiogram import types, F, Router
 from aiogram.filters import Command
@@ -7,6 +8,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 # Импортируем расчет баффов
 from handlers.etel import get_user_buffs
+from ivent import get_random_event
 
 router = Router()
 
@@ -158,15 +160,29 @@ async def process_droch(message: types.Message, get_user, save_db):
     if user.get("stress", 0) >= 100:
         return await message.reply("Твой стресс слишком высок, поэтому твой дружок не встаёт")
 
+    # --- ПРОВЕРКА ПОЯСА ИЛИ СОБЫТИЙ (РАЗДЕЛЕННАЯ) ---
     belt_expire = user.get("belt_expire_time", 0)
     if current_time < belt_expire:
+        reason = user.get("lock_reason", "belt")
         remaining = int(belt_expire - current_time)
         hours = remaining // 3600
         minutes = (remaining % 3600) // 60
-        return await message.reply(
-            f"На тебе пояс верности. 🔒 Ты не можешь дрочить ещё <b>{hours}ч. {minutes}мин.</b>!",
-            parse_mode="HTML"
-        )
+
+        if reason == "mom":
+            return await message.reply(
+                f"Ты всё ещё прячешься от мамки! 🙈\nСможешь продолжить через <b>{hours}ч. {minutes}мин.</b>",
+                parse_mode="HTML"
+            )
+        elif reason == "erection":
+            return await message.reply(
+                f"Твой хер всё ещё в коме... 🥀\nОсталось ждать <b>{hours}ч. {minutes}мин.</b>",
+                parse_mode="HTML"
+            )
+        else:
+            return await message.reply(
+                f"На тебе пояс верности. 🔒 Ты не можешь дрочить ещё <b>{hours}ч. {minutes}мин.</b>!",
+                parse_mode="HTML"
+            )
 
     buffs = get_user_buffs(user)
     BASE_COOLDOWN = 1800
@@ -195,6 +211,14 @@ async def process_droch(message: types.Message, get_user, save_db):
             reply_markup=get_spray_markup(spray_count, message.from_user.id),
             parse_mode="HTML"
         )
+
+    # --- НОВАЯ ПРОВЕРКА: СЛУЧАЙНЫЕ СОБЫТИЯ (5% ШАНС) ---
+    event = get_random_event()
+    if event:
+        user["belt_expire_time"] = current_time + event["seconds"]
+        user["lock_reason"] = event["id"]  # Запоминаем причину (mom или erection)
+        await save_db(message.from_user.id, user)
+        return await message.reply(event["text"], parse_mode="HTML")
 
     chat_stats["masturbations_count"] += 1
 

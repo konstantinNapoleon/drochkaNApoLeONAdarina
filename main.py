@@ -31,6 +31,7 @@ from tools.refprog import router as refprog_router
 from handlers.etel import router as etel_router
 from games.cybik import router as cybik_router
 from games.igram import router as igram_router
+from handlers.ivent import router
 
 # --- НАСТРОЙКИ БОТА ---
 TOKEN = os.getenv("BOT_TOKEN")

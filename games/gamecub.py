@@ -10,19 +10,21 @@ router = Router()
 # СЮДА ВСТАВЬ FILE ID СТИКЕРА (узнать через @idstickerbot)
 POPPIT_STICKERS = [
     "CAACAgIAAxkBAAEQxE1puHx0R6iBBX-FirEhnYj38TLOFQACMg4AAm1c0Ei6RlcE9wmVFToE"
-    ]
+]
 CAT_STICKER_ID = [
     "CAACAgIAAxkBAAEQxkZpunAQzNfxqeo7ZHe8vEzqVJT7ZAACrRIAAiHm6ErMPS5b666L7ToE"
-    ]
+]
 
 # Список предметов Pop It
 POPPIT_ITEMS = ["🔴", "🟢", "🟪", "🟠", "🟡", "🔵", "🟣", "💜"]
 
 USE_RESPONSES = {
     "🔑": "Ты снял пояс верности и теперь снова можешь дрочить! 🤩",
+    "💉": "Тестостерон резко прилил к херу и ты можешь дрочить! 💪",
+    "🛌": "Тссс... Ты спрятался от мамки и можешь дрочить! 👌",
     "🚛": "Ты сел в рейс с дядей Федором. Гони, гони, быстрее.",
     "🔰": "Ты потряс значком <b>Летофага</b> 🔰. Приехал 410 автобус и увез тебя в Лагерь Совенок. ",
-    "🏴‍☠️": "Ты потряс флагом карибского моря 🏴‍☠️. Приплыл Джек Воробей.",
+    "🏴‍☠️": "Ты потряс флагом карибского моря 🏴–. Приплыл Джек Воробей.",
     "🏳️‍⚧️": "Ты потряс флагом <b>Miside</b> 🏳️‍⚧️. Пришла Мита и превратила тебя в картридж.",
     "🚚": "https://youtu.be/OcX68KbSYD8?si=xpN2flT0ukLnBhOC",
     "📗": [
@@ -66,9 +68,9 @@ USE_VIDEOS = {
     "🚛": [
         "BAACAgIAAxkBAAItemm24NkB0J1lw93_eUq4nxjoIPaJAAIcmQAC2ES5SVbnox05RsRiOgQ"
     ],
-    "🏴‍☠️": [
-    "BAACAgIAAxkBAAIw6Gm8HnCQ35fB_3AdSG7a9UycH86xAAI5kgACcaDgSQZmoWlNpkqzOgQ"
-    "BAACAgIAAxkBAAIw5mm8HhJGxz2XHt26kymF19cIMfb9AAIzkgACcaDgSdsna88ClotSOgQ"
+    "🏴–": [
+        "BAACAgIAAxkBAAIw6Gm8HnCQ35fB_3AdSG7a9UycH86xAAI5kgACcaDgSQZmoWlNpkqzOgQ",
+        "BAACAgIAAxkBAAIw5mm8HhJGxz2XHt26kymF19cIMfb9AAIzkgACcaDgSdsna88ClotSOgQ"
     ],
     "🔰": [
         "BAACAgIAAxkBAAIinmm0m1uLYASs19udNu-x61-zTOYQAAIelwACTkGgSdwKhl8bngsKOgQ",
@@ -103,7 +105,7 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
     if item_count <= 0:
         return await message.reply("❌ <b>У тебя нету такого предмета.</b>", parse_mode="HTML")
 
-        # --- 1. ПЕРВЫМ ДЕЛОМ ПРОВЕРЯЕМ КОТА ---
+    # --- 1. ПЕРВЫМ ДЕЛОМ ПРОВЕРЯЕМ КОТА ---
     if item_emoji == "🐈":
         last_use = user.get("last_cat_use_time", 0)
         current_time = time.time()
@@ -120,10 +122,10 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
         user["last_cat_use_time"] = current_time
         await save_db(message.from_user.id, user)
         await message.reply("Ты погладил своего кота! 🎏✨ Стресс на нуле.", parse_mode="HTML")
-        await message.answer_sticker(CAT_STICKER_ID)
+        await message.answer_sticker(random.choice(CAT_STICKER_ID))
         return
 
-        # --- 2. ЗАТЕМ ПРОВЕРЯЕМ POP IT ---
+    # --- 2. ЗАТЕМ ПРОВЕРЯЕМ POP IT ---
     if item_emoji in POPPIT_ITEMS:
         user["stress"] = 0
         inv_dict[item_emoji] -= 1
@@ -131,6 +133,36 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
         await message.reply("Ты пощёлкал Pop It, стресс снижен до нуля. Жми: /drochnut", parse_mode="HTML")
         await message.answer_sticker(random.choice(POPPIT_STICKERS))
         return
+
+    # --- ШПРИЦ (💉) СНИМАЕТ "ХЕР НЕ ВСТАЛ" ---
+    if item_emoji == "💉":
+        current_time = time.time()
+        if user.get("lock_reason") != "erection" or current_time >= user.get("belt_expire_time", 0):
+            return await message.reply("Твой член здоров! 😇", parse_mode="HTML")
+
+        user["belt_expire_time"] = 0
+        user["lock_reason"] = None
+        if "chats_data" in user and chat_id in user["chats_data"]:
+            user["chats_data"][chat_id]["last_droch_time"] = 0
+
+        inv_dict["💉"] -= 1
+        await save_db(message.from_user.id, user)
+        return await message.reply(USE_RESPONSES["💉"], parse_mode="HTML")
+
+    # --- ОДЕЯЛО (🛌) ПРЯЧЕТ ОТ МАМКИ ---
+    if item_emoji == "🛌":
+        current_time = time.time()
+        if user.get("lock_reason") != "mom" or current_time >= user.get("belt_expire_time", 0):
+            return await message.reply("Тебя ещё не палила мамка! 👩–", parse_mode="HTML")
+
+        user["belt_expire_time"] = 0
+        user["lock_reason"] = None
+        if "chats_data" in user and chat_id in user["chats_data"]:
+            user["chats_data"][chat_id]["last_droch_time"] = 0
+
+        inv_dict["🛌"] -= 1
+        await save_db(message.from_user.id, user)
+        return await message.reply(USE_RESPONSES["🛌"], parse_mode="HTML")
 
     # --- СПЕЦИАЛЬНАЯ ЛОГИКА ДЛЯ ДОЗАТОРА ---
     if item_emoji == "🚰":
@@ -151,6 +183,7 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
         if current_time >= belt_expire:
             return await message.reply("❌ <b>На тебе нет пояса верности!</b>", parse_mode="HTML")
         user["belt_expire_time"] = 0
+        user["lock_reason"] = None
         if "chats_data" in user and chat_id in user["chats_data"]:
             user["chats_data"][chat_id]["last_droch_time"] = 0
         inv_dict["🔑"] -= 1
