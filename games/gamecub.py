@@ -21,7 +21,7 @@ POPPIT_ITEMS = ["🔴", "🟢", "🟪", "🟠", "🟡", "🔵", "🟣", "💜"]
 USE_RESPONSES = {
     "🔑": "Ты снял пояс верности и теперь снова можешь дрочить! 🤩",
     "🔰": "Ты потряс значком <b>Летофага</b> 🔰. Приехал 410 автобус и увез тебя в Лагерь Совенок. ",
-    "🏴\u200d☠️": "Ты потряс флагом карибского моря 🏴\u200d☠️. Приплыл Джек Воробей.",
+    "🏴‍☠️": "Ты потряс флагом карибского моря 🏴‍☠️. Приплыл Джек Воробей.",
     "🏳️‍⚧️": "Ты потряс флагом <b>Miside</b> 🏳️‍⚧️. Пришла Мита и превратила тебя в картридж.",
     "🚚": "https://youtu.be/OcX68KbSYD8?si=xpN2flT0ukLnBhOC",
     "📗": [
@@ -65,7 +65,7 @@ USE_VIDEOS = {
     "🚛": [
         "BAACAgIAAxkBAAItemm24NkB0J1lw93_eUq4nxjoIPaJAAIcmQAC2ES5SVbnox05RsRiOgQ"
     ],
-    "🏴\u200d☠️": [
+    "🏴‍☠️": [
         "BAACAgIAAxkBAAIw6Gm8HnCQ35fB_3AdSG7a9UycH86xAAI5kgACcaDgSQZmoWlNpkqzOgQ"
         "BAACAgIAAxkBAAIw5mm8HhJGxz2XHt26kymF19cIMfb9AAIzkgACcaDgSdsna88ClotSOgQ"
     ],
