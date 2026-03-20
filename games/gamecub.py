@@ -1,8 +1,10 @@
 import html
 import random
 import time
+from datetime import datetime, timezone, timedelta
 from aiogram import Router, F, types
 from aiogram.filters import Command
+from aiogram.types import ChatPermissions
 from items import GAME_ITEMS
 
 router = Router()
@@ -83,6 +85,59 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
     belt_expire = user.get("belt_expire_time", 0)
     lock_reason = user.get("lock_reason")
     is_locked = current_time < belt_expire
+
+    # --- КИРПИЧ (🧱) ---
+    if item_emoji == "🧱":
+        if not message.reply_to_message:
+            return await message.reply(
+                "Чтобы использовать 🧱 <b>Кирпич</b>, нужно ответить на сообщение того, кого ты хочешь ебнуть!",
+                parse_mode="HTML")
+
+        target_user_obj = message.reply_to_message.from_user
+        if target_user_obj.id == message.from_user.id:
+            return await message.reply("Зачем ты бьешь себя? Остановись! 🧱")
+
+        # Получаем данные цели, чтобы проверить щит
+        target_data = await get_user(target_user_obj.id, target_user_obj.username)
+        target_inv = ensure_inv_dict(target_data)
+
+        # ЛОГИКА ЩИТА (🛡)
+        if target_inv.get("🛡", 0) > 0:
+            last_shield_use = target_data.get("last_shield_block_time", 0)
+            if current_time - last_shield_use >= 600:  # 10 минут
+                # Щит сработал!
+                target_data["last_shield_block_time"] = current_time
+                inv_dict["🧱"] -= 1  # Кирпич все равно тратится
+                await save_db(message.from_user.id, user)
+                await save_db(target_user_obj.id, target_data)
+
+                target_name = html.escape(target_user_obj.full_name)
+                return await message.answer(
+                    f"🛡 <b>{target_name}</b> отразил твой кирпич <b>Щитом великого дрочуна</b>! вьебать не получилось. 🙊",
+                    parse_mode="HTML")
+
+        # Если щита нет или он на КД — обычный мут
+        try:
+            until_date = datetime.now() + timedelta(minutes=10)
+            await message.chat.restrict(
+                user_id=target_user_obj.id,
+                permissions=ChatPermissions(can_send_messages=False),
+                until_date=until_date
+            )
+            inv_dict["🧱"] -= 1
+            await save_db(message.from_user.id, user)
+            target_name = html.escape(target_user_obj.full_name)
+            return await message.answer(f"Ты ебнул <b>{target_name}</b> 🧱. Он замолчал на 10 минут.", parse_mode="HTML")
+        except Exception:
+            return await message.reply(
+                "❌ <b>Ошибка!</b>\nЛибо я не админ, либо ты пытаешься ударить кирпичом того, кто в каске (админа).",
+                parse_mode="HTML")
+
+    # --- ЩИТ (🛡) ---
+    if item_emoji == "🛡":
+        return await message.reply(
+            "🛡 <b>Щит великого дрочуна</b> работает автоматически. Он защитит тебя от кирпича раз в 10 минут, если лежит в инвентаре.",
+            parse_mode="HTML")
 
     # --- ПРОВЕРКА СОСТОЯНИЯ ПЕРЕД ИСПОЛЬЗОВАНИЕМ ---
     if item_emoji == "💉":
@@ -183,6 +238,8 @@ async def text_use(message: types.Message, get_user, save_db):
     item_emoji = message.text[3:].strip()
     if not item_emoji: return
     await process_item_use(message, item_emoji, get_user, save_db)
+
+
 
 
 
