@@ -1,15 +1,17 @@
 import html
 import asyncio
 import logging
+import time as t_lib
 from aiogram import Router, F, types
 from aiogram.filters import Command, CommandObject
-from .recipes import CRAFT_RECIPES
-from items import GAME_ITEMS
+from .recipes import CRAFT_RECIPES  # Добавлена точка для работы внутри папки
 
 router = Router()
 
+# Временное хранилище активных крафтов {user_id: [список задач]}
+ACTIVE_CRAFTS = {}
 
-# Функция для безопасного получения инвентаря
+
 def get_inv_dict(user) -> dict:
     inv = user.get("inventory")
     if not isinstance(inv, dict):
@@ -17,139 +19,143 @@ def get_inv_dict(user) -> dict:
     return user["inventory"]
 
 
-# ФОНОВАЯ ЗАДАЧА (ВЫДАЧА ПРЕДМЕТА)
-async def delayed_craft_task(bot, user_id, item_emoji, total_amount, wait_seconds, get_user, save_db):
+# ФОНОВАЯ ЗАДАЧА
+async def delayed_craft_task(bot, user_id, item_emoji, total_amount, wait_seconds, get_user, save_db, task_info):
     try:
-        # Ждем положенное время
+        # Ждем время
         await asyncio.sleep(wait_seconds)
 
-        # Загружаем актуального пользователя
+        # Выдача предмета
         user = await get_user(user_id)
-        if not user:
-            return
+        if user:
+            inv = get_inv_dict(user)
+            inv[item_emoji] = inv.get(item_emoji, 0) + total_amount
+            await save_db(user_id, user)
 
-        inv = get_inv_dict(user)
+            # Уведомление в ЛС
+            recipe_name = CRAFT_RECIPES[item_emoji]["name"]
+            try:
+                await bot.send_message(
+                    user_id,
+                    f"✅ <b>Крафт закончен!</b>\n"
+                    f"Было скравчено: <b>{total_amount} {item_emoji} {recipe_name}</b>",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
 
-        # Выдаем предмет
-        inv[item_emoji] = inv.get(item_emoji, 0) + total_amount
-
-        # Сохраняем базу
-        await save_db(user_id, user)
-
-        # Отправляем уведомление в ЛС
-        recipe_name = CRAFT_RECIPES[item_emoji]["name"]
-        try:
-            await bot.send_message(
-                user_id,
-                f"✅ <b>Крафт закончен!</b>\n"
-                f"Было скравчено: <b>{total_amount} {item_emoji} {recipe_name}</b>",
-                parse_mode="HTML"
-            )
-        except Exception as e:
-            logging.error(f"Не удалось отправить ЛС пользователю {user_id}: {e}")
-
-    except Exception as global_e:
-        logging.error(f"Ошибка в фоновом крафте: {global_e}")
+    finally:
+        # Очистка из списка активных в любом случае (даже при ошибке)
+        if user_id in ACTIVE_CRAFTS:
+            ACTIVE_CRAFTS[user_id] = [t for t in ACTIVE_CRAFTS[user_id] if t != task_info]
+            if not ACTIVE_CRAFTS[user_id]:
+                del ACTIVE_CRAFTS[user_id]
 
 
-# ОБРАБОТКА КОМАНДЫ КРАФТА
+# КОМАНДА КРАФТА
 @router.message(Command("craft"))
 @router.message(F.text.lower().startswith("крафт "))
 async def cmd_craft_logic(message: types.Message, get_user, save_db, command: CommandObject = None):
-    # Разбираем текст сообщения
+    user_id = message.from_user.id
+
+    # Разбираем аргументы
     args = []
     if command and command.args:
         args = command.args.split()
     else:
-        # Для обычного текста "крафт 🚬 10"
         parts = message.text.split()
         if len(parts) > 1:
             args = parts[1:]
 
+    # --- ЕСЛИ ПРОСТО /CRAFT — ПОКАЗЫВАЕМ АКТИВНЫЕ КРАФТЫ ---
     if not args:
-        return await message.reply(
-            "🛠 <b>Инструкция:</b>\n\n"
-            "Используй: <code>крафт [предмет] [кол-во]</code>\n"
-            "Например: <code>крафт 🚬 10</code>",
-            parse_mode="HTML"
-        )
+        if user_id not in ACTIVE_CRAFTS or not ACTIVE_CRAFTS[user_id]:
+            return await message.reply(
+                "❌ <b>У тебя сейчас нет активных крафтов.</b>\n\n"
+                "Чтобы что-то создать, используй:\n"
+                "<code>крафт [предмет] [кол-во]</code>\n"
+                "Например: <code>крафт 🚬 10</code>",
+                parse_mode="HTML"
+            )
 
+        text = "⏳ <b>Твои текущие крафты:</b>\n\n"
+        current_time = t_lib.time()
+
+        for i, craft in enumerate(ACTIVE_CRAFTS[user_id], 1):
+            remains = int(craft["end_time"] - current_time)
+            if remains < 0: remains = 0
+
+            # Формат времени
+            m, s = divmod(remains, 60)
+            time_str = f"{m}м {s}с" if m > 0 else f"{s}с"
+
+            text += f"{i}. {craft['emoji']} <b>{craft['name']}</b> ({craft['amount']} шт.)\n"
+            text += f"   Осталось: <code>{time_str}</code>\n\n"
+
+        return await message.answer(text, parse_mode="HTML")
+
+    # --- ЛОГИКА ЗАПУСКА КРАФТА ---
     item_emoji = args[0]
-
-    # Определяем количество (по умолчанию 1)
     try:
         count = int(args[1]) if len(args) > 1 else 1
-        if count <= 0:
-            return await message.reply("❌ Количество должно быть больше 0.")
+        if count <= 0: return await message.reply("❌ Количество должно быть больше 0.")
     except ValueError:
         count = 1
 
-    # Проверка существования рецепта
     if item_emoji not in CRAFT_RECIPES:
-        return await message.reply("❌ Такого рецепта не существует. Проверь список в <code>юз 📘</code>")
+        return await message.reply("❌ Такого рецепта не существует.")
 
     recipe = CRAFT_RECIPES[item_emoji]
-    user = await get_user(message.from_user.id, message.from_user.username)
+    user = await get_user(user_id, message.from_user.username)
     inv = get_inv_dict(user)
 
-    # 1. ПРОВЕРКА РЕСУРСОВ
+    # Проверка ресурсов
     missing = []
-    for ing, req_per_one in recipe["ingredients"].items():
-        total_needed = req_per_one * count
-        if inv.get(ing, 0) < total_needed:
-            missing.append(f"{total_needed - inv.get(ing, 0)}{ing}")
+    for ing, req in recipe["ingredients"].items():
+        total = req * count
+        if inv.get(ing, 0) < total:
+            missing.append(f"{total - inv.get(ing, 0)}{ing}")
 
     if missing:
-        return await message.reply(f"❌ Недостаточно ресурсов! Нужно ещё: {', '.join(missing)}")
+        return await message.reply(f"❌ Недостаточно ресурсов! Нужно еще: {', '.join(missing)}")
 
-    # 2. СПИСАНИЕ РЕСУРСОВ (СРАЗУ)
-    for ing, req_per_one in recipe["ingredients"].items():
-        inv[ing] -= (req_per_one * count)
-        if inv[ing] <= 0:
-            del inv[ing]
+    # Списание
+    for ing, req in recipe["ingredients"].items():
+        inv[ing] -= (req * count)
+        if inv[ing] <= 0: del inv[ing]
 
-    # Сохраняем состояние инвентаря после списания
-    await save_db(message.from_user.id, user)
+    await save_db(user_id, user)
 
-    # 3. РАСЧЕТ ВРЕМЕНИ
-    time_per_unit = recipe.get("time", 10)
-    total_wait_time = count * time_per_unit
+    # Расчет времени
+    wait_time = count * recipe.get("time", 10)
+    end_time = t_lib.time() + wait_time
 
-    # Форматирование времени для сообщения
-    if total_wait_time < 60:
-        readable_time = f"{total_wait_time} сек."
-    else:
-        readable_time = f"{total_wait_time // 60} мин. {total_wait_time % 60} сек."
+    # Сохраняем информацию о задаче
+    task_info = {
+        "emoji": item_emoji,
+        "name": recipe["name"],
+        "amount": count * recipe.get("amount", 1),
+        "end_time": end_time
+    }
 
-    await message.reply(
-        f"⚒️ <b>Крафт запущен!</b>\n\n"
-        f"Предмет: {item_emoji} {recipe['name']}\n"
-        f"Количество: {count} шт.\n"
-        f"Время ожидания: <b>{readable_time}</b>\n\n"
-        f"<i>Бот напишет тебе в ЛС о готовности.</i>",
-        parse_mode="HTML"
-    )
+    if user_id not in ACTIVE_CRAFTS:
+        ACTIVE_CRAFTS[user_id] = []
+    ACTIVE_CRAFTS[user_id].append(task_info)
 
-    # 4. ЗАПУСК ФОНОВОГО ТАЙМЕРА
+    # Запуск
     asyncio.create_task(
         delayed_craft_task(
-            message.bot,
-            message.from_user.id,
-            item_emoji,
-            count * recipe.get("amount", 1),
-            total_wait_time,
-            get_user,
-            save_db
+            message.bot, user_id, item_emoji,
+            task_info["amount"], wait_time,
+            get_user, save_db, task_info
         )
     )
 
+    await message.reply(
+        f"⚒️ <b>Крафт запущен!</b>\n"
+        f"Ты создаешь {count} {item_emoji}\n"
+        f"Будет готово через: <b>{wait_time // 60}м {wait_time % 60}с</b>",
+        parse_mode="HTML"
+    )
 
-# СПИСОК КРАФТОВ
-@router.message(F.text.lower() == "крафты")
-async def show_crafts_list(message: types.Message):
-    text = "⚒️ <b>Список доступных крафтов:</b>\n\n"
-    for emoji, data in CRAFT_RECIPES.items():
-        ings = ", ".join([f"{count}{e}" for e, count in data["ingredients"].items()])
-        text += f"• {emoji} <b>{data['name']}</b> — {ings} ({data.get('time', 10)}с/шт)\n"
-    text += "\n<i>Используй: крафт [эмодзи] [кол-во]</i>"
-    await message.answer(text, parse_mode="HTML")
+
