@@ -9,6 +9,7 @@ from items import GAME_ITEMS
 router = Router()
 ITEMS_PER_PAGE = 10
 FARMCOIN = "💰"
+FRAGA = "🪙"
 
 
 # --- НОВАЯ ЛОГИКА ИНВЕНТАРЯ (Словари) ---
@@ -45,6 +46,20 @@ def spend_farmcoins(user, amount: int) -> bool:
     inv[FARMCOIN] = current - amount
     return True
 
+# Дополнительная функция для новой валюты
+def get_balance(user, currency: str) -> int:
+    inv = ensure_inv_dict(user)
+    return inv.get(currency, 0)
+
+def spend_currency(user, currency: str, amount: int) -> bool:
+    if amount <= 0: return True
+    inv = ensure_inv_dict(user)
+    current = inv.get(currency, 0)
+    if current < amount:
+        return False
+    inv[currency] = current - amount
+    return True
+
 
 def add_item_to_inv(user, item_emoji: str, amount: int):
     """Добавляет предмет (прибавлением числа)"""
@@ -73,9 +88,10 @@ def get_shop_page(user_id: int, page: int = 0):
 
     for emoji, info in items_slice:
         price = info.get("price")
+        currency = info.get("currency", FARMCOIN) # Новое: определяем валюту (💰 или 🪙)
         name = info.get("name", emoji)
         desc = info.get("description", "Без описания")
-        text += f" • {price:} 💰 — <code>{emoji}</code> <b>{name}</b>: {desc}\n"
+        text += f" • {price:} {currency} — <code>{emoji}</code> <b>{name}</b>: {desc}\n"
 
     text += f"Страница {page + 1}/{total_pages}"
 
@@ -154,6 +170,7 @@ async def process_buy_command(message: types.Message):
 
     item_info = GAME_ITEMS[item_emoji]
     price = item_info.get("price", 0)
+    currency = item_info.get("currency", FARMCOIN) # Определяем валюту
 
     if price <= 0:
         return await message.answer("❌ Этот предмет не продается.")
@@ -162,7 +179,7 @@ async def process_buy_command(message: types.Message):
 
     # --- ЛОГИКА СКИДКИ ---
     discount_text = ""
-    if total_price >= 5000:
+    if currency == FARMCOIN and total_price >= 5000:
         total_price = int(total_price * 0.7)  # Скидка 30%
         discount_text = " (Скидка 30% 🔥)"
 
@@ -176,7 +193,7 @@ async def process_buy_command(message: types.Message):
     )
 
     await message.reply(
-        f"Вы уверены, что хотите купить <b>{amount} {item_emoji} {item_info.get('name')}</b> за <b>{total_price:,}</b> 💰?{discount_text}",
+        f"Вы уверены, что хотите купить <b>{amount} {item_emoji} {item_info.get('name')}</b> за <b>{total_price:,}</b> {currency}?{discount_text}",
         reply_markup=builder.as_markup(),
         parse_mode="HTML"
     )
@@ -196,15 +213,17 @@ async def buy_confirmed(callback: types.CallbackQuery, get_user, save_db):
     if not item_info or item_info.get("price", 0) <= 0:
         return await callback.answer("❌ Этот предмет больше не продается.", show_alert=True)
 
+    currency = item_info.get("currency", FARMCOIN)
     total_price = item_info.get("price") * amount
 
-    # Скидка 30%
-    if total_price >= 5000:
+    # Скидка 30% (только для 💰)
+    if currency == FARMCOIN and total_price >= 5000:
         total_price = int(total_price * 0.7)
 
-    if not spend_farmcoins(user, total_price):
-        have = get_farmcoins(user)
-        return await callback.answer(f"❌ У тебя {have:,} 💰. Не хватает {total_price - have:,} 💰", show_alert=True)
+    # Проверка баланса в нужной валюте
+    if not spend_currency(user, currency, total_price):
+        have = get_balance(user, currency)
+        return await callback.answer(f"❌ У тебя {have:,} {currency}. Не хватает {total_price - have:,} {currency}", show_alert=True)
 
     # Выдача предмета
     add_item_to_inv(user, item_emoji, amount)
@@ -217,14 +236,15 @@ async def buy_confirmed(callback: types.CallbackQuery, get_user, save_db):
             inviter = await get_user(inviter_id)
             if inviter:
                 inv_dict_inviter = ensure_inv_dict(inviter)
-                inv_dict_inviter[FARMCOIN] = inv_dict_inviter.get(FARMCOIN, 0) + commission
+                # Реферал получает комиссию в той же валюте, в которой была покупка
+                inv_dict_inviter[currency] = inv_dict_inviter.get(currency, 0) + commission
                 await save_db(inviter_id, inviter)
 
                 # Уведомление пригласителя
                 try:
                     await callback.message.bot.send_message(
                         inviter_id,
-                        f"📈 Твой реферал совершил покупку! Тебе начислено <b>{commission}</b> {FARMCOIN} (20%)",
+                        f"📈 Твой реферал совершил покупку! Тебе начислено <b>{commission}</b> {currency} (20%)",
                         parse_mode="HTML"
                     )
                 except:
@@ -233,7 +253,7 @@ async def buy_confirmed(callback: types.CallbackQuery, get_user, save_db):
     await save_db(callback.from_user.id, user)
 
     await callback.message.edit_text(
-        f"✅ Ты успешно купил <b>{amount} {item_emoji} {item_info.get('name')}</b> за <b>{total_price:,} 💰</b>!",
+        f"✅ Ты успешно купил <b>{amount} {item_emoji} {item_info.get('name')}</b> за <b>{total_price:,} {currency}</b>!",
         parse_mode="HTML")
     await callback.answer()
 
