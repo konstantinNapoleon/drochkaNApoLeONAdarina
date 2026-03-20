@@ -97,26 +97,35 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
         if target_user_obj.id == message.from_user.id:
             return await message.reply("Зачем ты бьешь себя? Остановись! 🧱")
 
-        # Получаем данные цели, чтобы проверить щит
+        # Получаем данные цели
         target_data = await get_user(target_user_obj.id, target_user_obj.username)
         target_inv = ensure_inv_dict(target_data)
+        target_name = html.escape(target_user_obj.full_name)
 
-        # ЛОГИКА ЩИТА (🛡)
+        # 1. ПРОВЕРКА ЩИТА (🛡) - Многоразовый с КД
         if target_inv.get("🛡", 0) > 0:
             last_shield_use = target_data.get("last_shield_block_time", 0)
             if current_time - last_shield_use >= 600:  # 10 минут
-                # Щит сработал!
                 target_data["last_shield_block_time"] = current_time
-                inv_dict["🧱"] -= 1  # Кирпич все равно тратится
+                inv_dict["🧱"] -= 1
                 await save_db(message.from_user.id, user)
                 await save_db(target_user_obj.id, target_data)
-
-                target_name = html.escape(target_user_obj.full_name)
                 return await message.answer(
-                    f"🛡 <b>{target_name}</b> отразил твой кирпич <b>Щитом великого дрочуна</b>! вьебать не получилось. 🙊",
+                    f"🛡 <b>{target_name}</b> отразил твой кирпич <b>Щитом великого дрочуна</b>! Ебнуть не получилось.",
                     parse_mode="HTML")
 
-        # Если щита нет или он на КД — обычный мут
+        # 2. ПРОВЕРКА КАСКИ (🪖) - Одноразовая, должна быть включена
+        if target_inv.get("🪖", 0) > 0 and target_data.get("helmet_active"):
+            target_inv["🪖"] -= 1  # Каска ломается
+            target_data["helmet_active"] = False  # Каска выключается, так как сломана
+            inv_dict["🧱"] -= 1  # Кирпич тратится
+            await save_db(message.from_user.id, user)
+            await save_db(target_user_obj.id, target_data)
+            return await message.answer(
+                f"🪖 <b>{target_name}</b> выжил после удара кирпичом, но его <b>Каска</b> разлетелась в щепки! Минус кирпич и минус каска. 😳",
+                parse_mode="HTML")
+
+        # 3. ЕСЛИ НЕТ ЗАЩИТЫ - МУТ
         try:
             until_date = datetime.now() + timedelta(minutes=10)
             await message.chat.restrict(
@@ -126,14 +135,22 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
             )
             inv_dict["🧱"] -= 1
             await save_db(message.from_user.id, user)
-            target_name = html.escape(target_user_obj.full_name)
             return await message.answer(f"Ты ебнул <b>{target_name}</b> 🧱. Он замолчал на 10 минут.", parse_mode="HTML")
         except Exception:
             return await message.reply(
                 "❌ <b>Ошибка!</b>\nЛибо я не админ, либо ты пытаешься ударить кирпичом того, кто в каске (админа).",
                 parse_mode="HTML")
 
-    # --- ЩИТ (🛡) ---
+    # --- КАСКА (🪖) ВКЛЮЧЕНИЕ/ВЫКЛЮЧЕНИЕ ---
+    if item_emoji == "🪖":
+        is_active = user.get("helmet_active", False)
+        user["helmet_active"] = not is_active
+        await save_db(message.from_user.id, user)
+        status = "включена" if not is_active else "выключена"
+        return await message.reply(
+            f"🪖 <b>Каска {status}!</b>\nТеперь она защитит тебя от кирпича (если есть в инвентаре).", parse_mode="HTML")
+
+    # --- ЩИТ (🛡) Инфо ---
     if item_emoji == "🛡":
         return await message.reply(
             "🛡 <b>Щит великого дрочуна</b> работает автоматически. Он защитит тебя от кирпича раз в 10 минут, если лежит в инвентаре.",
