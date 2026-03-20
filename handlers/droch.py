@@ -6,6 +6,7 @@ from aiogram import types, F, Router
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+
 # Импортируем расчет баффов
 from handlers.etel import get_user_buffs
 from handlers.ivent import get_random_event
@@ -163,7 +164,7 @@ async def callback_open_me(callback: types.CallbackQuery, get_user):
         await callback.answer()
 
 
-# --- ТВОЯ ИСХОДНАЯ ЛОГИКА ---
+# --- ЛОГИКА ДРОЧКИ ---
 
 async def process_droch(message: types.Message, get_user, save_db):
     user = await get_user(message.from_user.id, message.from_user.username)
@@ -282,7 +283,7 @@ async def process_droch(message: types.Message, get_user, save_db):
                             parse_mode="HTML")
 
 
-# --- ОБРАБОТЧИК КНОПОК ИЗ СОБЫТИЙ ---
+# --- ОБРАБОТЧИК КНОПОК ИЗ СОБЫТИЙ (С ЗАЩИТОЙ) ---
 @router.callback_query(F.data.startswith("fix_event:"))
 async def callback_fix_event(callback: types.CallbackQuery, get_user, save_db):
     _, item_emoji, owner_id = callback.data.split(":")
@@ -290,6 +291,22 @@ async def callback_fix_event(callback: types.CallbackQuery, get_user, save_db):
         return await callback.answer("Это не твой предмет!", show_alert=True)
 
     user = await get_user(callback.from_user.id, callback.from_user.username)
+    current_time = time.time()
+
+    # ПРОВЕРКА: Если блокировка уже снята (временем или другой кнопкой)
+    if current_time >= user.get("belt_expire_time", 0):
+        already_ok_responses = {
+            "💉": "Твой член здоров. 👍 Шприц не нужен.",
+            "🛌": "Мамки нет рядом. 👍 Одеяло не нужно.",
+            "📕": "Ты больше не грустишь. 👍 Журнал не нужен."
+        }
+        try:
+            await callback.message.edit_text(already_ok_responses.get(item_emoji, "Всё уже в порядке! ✨"),
+                                             parse_mode="HTML")
+        except Exception:
+            pass
+        return await callback.answer("Ты уже здоров!")
+
     inv = ensure_inv_dict(user)
     chat_id = str(callback.message.chat.id)
 
@@ -302,6 +319,7 @@ async def callback_fix_event(callback: types.CallbackQuery, get_user, save_db):
         "📕": "Ты полистал журнал FamHub и грусть как рукой сняло! 📕✨"
     }
 
+    # Тратим предмет и снимаем блокировку
     inv[item_emoji] -= 1
     user["belt_expire_time"] = 0
     user["lock_reason"] = None
@@ -367,9 +385,3 @@ async def use_spray_cmd(message: types.Message, get_user, save_db):
         await message.reply("Ты применил <b>спрей</b>! 🌼 Жми: /drochnut", parse_mode="HTML")
     else:
         await message.reply("Спрей сейчас не нужен!")
-
-
-
-
-
-
