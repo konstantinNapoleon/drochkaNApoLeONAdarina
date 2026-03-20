@@ -79,6 +79,22 @@ def get_spray_markup(spray_count: int, user_id: int):
     return builder.as_markup()
 
 
+# --- Вспомогательная функция для кнопок снятия дебаффов ---
+def get_event_fix_markup(reason: str, inv: dict, user_id: int):
+    builder = InlineKeyboardBuilder()
+    if reason == "mom" and inv.get("🛌", 0) > 0:
+        builder.button(text=f"🛌 Применить Одеяло ({inv['🛌']})", callback_data=f"fix_event:🛌:{user_id}")
+    elif reason == "erection" and inv.get("💉", 0) > 0:
+        builder.button(text=f"💉 Применить Шприц ({inv['💉']})", callback_data=f"fix_event:💉:{user_id}")
+    elif reason == "sadness" and inv.get("📕", 0) > 0:
+        builder.button(text=f"📕 Применить журнал FamHub ({inv['📕']})", callback_data=f"fix_event:📕:{user_id}")
+
+    if len(builder.as_markup().inline_keyboard) > 0:
+        builder.adjust(1)
+        return builder.as_markup()
+    return None
+
+
 # --- НОВЫЕ ФУНКЦИИ ДЛЯ ПРОФИЛЯ ---
 
 def get_me_markup(user_id: int):
@@ -169,24 +185,17 @@ async def process_droch(message: types.Message, get_user, save_db):
         minutes = (remaining % 3600) // 60
 
         if reason == "mom":
-            return await message.reply(
-                f"Ты всё ещё прячешься от мамки! 🙈\nСможешь продолжить через <b>{hours}ч. {minutes}мин.</b>",
-                parse_mode="HTML"
-            )
+            text = f"Ты всё ещё прячешься от мамки! 🙈\nСможешь продолжить через <b>{hours}ч. {minutes}мин.</b>"
         elif reason == "erection":
-            return await message.reply(
-                f"Твой хер всё ещё в коме... 🥀\nОсталось ждать <b>{hours}ч. {minutes}мин.</b>",
-                parse_mode="HTML"
-            )
+            text = f"Твой хер всё ещё в коме... 🥀\nОсталось ждать <b>{hours}ч. {minutes}мин.</b>"
         elif reason == "sadness":
-            return await message.reply(
-                f"Ты всё ещё грустишь потому что не нашел порнуху... 😭\nНастроение вернется через <b>{hours}ч. {minutes}мин.</b>",
-                parse_mode="HTML")
+            text = f"Ты всё ещё грустишь потому что не нашел порнуху... 😭\nНастроение вернется через <b>{hours}ч. {minutes}мин.</b>"
         else:
-            return await message.reply(
-                f"На тебе пояс верности. 🔒 Ты не можешь дрочить ещё <b>{hours}ч. {minutes}мин.</b>!",
-                parse_mode="HTML"
-            )
+            text = f"На тебе пояс верности. 🔒 Ты не можешь дрочить ещё <b>{hours}ч. {minutes}мин.</b>!"
+
+        # Генерируем кнопку, если есть предмет
+        markup = get_event_fix_markup(reason, inv, message.from_user.id)
+        return await message.reply(text, parse_mode="HTML", reply_markup=markup)
 
     buffs = get_user_buffs(user)
     BASE_COOLDOWN = 1800
@@ -222,7 +231,10 @@ async def process_droch(message: types.Message, get_user, save_db):
         user["belt_expire_time"] = current_time + event["seconds"]
         user["lock_reason"] = event["id"]  # Запоминаем причину (mom или erection)
         await save_db(message.from_user.id, user)
-        return await message.reply(event["text"], parse_mode="HTML")
+
+        # Сразу предлагаем кнопку исправления при выпадении события
+        markup = get_event_fix_markup(event["id"], inv, message.from_user.id)
+        return await message.reply(event["text"], parse_mode="HTML", reply_markup=markup)
 
     chat_stats["masturbations_count"] += 1
 
@@ -268,6 +280,37 @@ async def process_droch(message: types.Message, get_user, save_db):
         reply_text = f"Ты успешно вздрочнул! 😼\nНа твоем счету <b>{chat_stats['masturbations_count']}</b> вздрочки."
         await message.reply(reply_text, reply_markup=get_spray_markup(inv.get("💦", 0), message.from_user.id),
                             parse_mode="HTML")
+
+
+# --- ОБРАБОТЧИК КНОПОК ИЗ СОБЫТИЙ ---
+@router.callback_query(F.data.startswith("fix_event:"))
+async def callback_fix_event(callback: types.CallbackQuery, get_user, save_db):
+    _, item_emoji, owner_id = callback.data.split(":")
+    if callback.from_user.id != int(owner_id):
+        return await callback.answer("Это не твой предмет!", show_alert=True)
+
+    user = await get_user(callback.from_user.id, callback.from_user.username)
+    inv = ensure_inv_dict(user)
+    chat_id = str(callback.message.chat.id)
+
+    if inv.get(item_emoji, 0) <= 0:
+        return await callback.answer("Предмет закончился в инвентаре!")
+
+    responses = {
+        "💉": "Тестостерон резко прилил к херу и ты можешь дрочить! 💪",
+        "🛌": "Тссс... Ты спрятался от мамки и можешь дрочить! 👌",
+        "📕": "Ты полистал журнал FamHub и грусть как рукой сняло! 📕✨"
+    }
+
+    inv[item_emoji] -= 1
+    user["belt_expire_time"] = 0
+    user["lock_reason"] = None
+    if "chats_data" in user and chat_id in user["chats_data"]:
+        user["chats_data"][chat_id]["last_droch_time"] = 0
+
+    await save_db(callback.from_user.id, user)
+    await callback.message.edit_text(responses.get(item_emoji, "Эффект снят!"), parse_mode="HTML")
+    await callback.answer("Готово! Можешь дрочить.")
 
 
 @router.callback_query(F.data.startswith("use_spray_callback:"))
