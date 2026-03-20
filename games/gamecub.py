@@ -114,10 +114,13 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
                     f"🛡 <b>{target_name}</b> отразил твой кирпич <b>Щитом великого дрочуна</b>! Ебнуть не получилось.",
                     parse_mode="HTML")
 
-        # 2. ПРОВЕРКА КАСКИ (🪖) - Одноразовая, должна быть включена
+        # 2. ПРОВЕРКА КАСКИ (🪖) - Одноразовая, защита работает пока есть в инвентаре
         if target_inv.get("🪖", 0) > 0 and target_data.get("helmet_active"):
             target_inv["🪖"] -= 1  # Каска ломается
-            target_data["helmet_active"] = False  # Каска выключается, так как сломана
+            # Если каски закончились, выключаем статус активной защиты
+            if target_inv["🪖"] <= 0:
+                target_data["helmet_active"] = False
+
             inv_dict["🧱"] -= 1  # Кирпич тратится
             await save_db(message.from_user.id, user)
             await save_db(target_user_obj.id, target_data)
@@ -144,11 +147,16 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
     # --- КАСКА (🪖) ВКЛЮЧЕНИЕ/ВЫКЛЮЧЕНИЕ ---
     if item_emoji == "🪖":
         is_active = user.get("helmet_active", False)
+        # Запрещаем включать, если касок нет
+        if not is_active and inv_dict.get("🪖", 0) <= 0:
+            return await message.reply("❌ У тебя нет касок в инвентаре, чтобы их включить! 🪖", parse_mode="HTML")
+
         user["helmet_active"] = not is_active
         await save_db(message.from_user.id, user)
         status = "включена" if not is_active else "выключена"
         return await message.reply(
-            f"🪖 <b>Каска {status}!</b>\nТеперь она защитит тебя от кирпича (если есть в инвентаре).", parse_mode="HTML")
+            f"🪖 <b>Каска {status}!</b>\nТеперь она будет автоматически защищать тебя, пока каски не закончатся.",
+            parse_mode="HTML")
 
     # --- ЩИТ (🛡) Инфо ---
     if item_emoji == "🛡":
@@ -255,6 +263,7 @@ async def text_use(message: types.Message, get_user, save_db):
     item_emoji = message.text[3:].strip()
     if not item_emoji: return
     await process_item_use(message, item_emoji, get_user, save_db)
+
 
 
 
