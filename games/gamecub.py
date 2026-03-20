@@ -1,28 +1,21 @@
 import html
 import random
 import time
-import uuid
-import re
 from datetime import datetime, timezone, timedelta
 from aiogram import Router, F, types
-from aiogram.filters import Command, CommandObject
+from aiogram.filters import Command
 from aiogram.types import ChatPermissions
 from items import GAME_ITEMS
 
 router = Router()
 
-# --- СТИКЕРЫ ---
-POPPIT_STICKERS = [
-    "CAACAgIAAxkBAAEQxE1puHx0R6iBBX-FirEhnYj38TLOFQACMg4AAm1c0Ei6RlcE9wmVFToE"
-]
-CAT_STICKER_ID = [
-    "CAACAgIAAxkBAAEQxkZpunAQzNfxqeo7ZHe8vEzqVJT7ZAACrRIAAiHm6ErMPS5b666L7ToE"
-]
+# СТИКЕРЫ
+POPPIT_STICKERS = ["CAACAgIAAxkBAAEQxE1puHx0R6iBBX-FirEhnYj38TLOFQACMg4AAm1c0Ei6RlcE9wmVFToE"]
+CAT_STICKER_ID = ["CAACAgIAAxkBAAEQxkZpunAQzNfxqeo7ZHe8vEzqVJT7ZAACrRIAAiHm6ErMPS5b666L7ToE"]
 
 # Список предметов Pop It
 POPPIT_ITEMS = ["🔴", "🟢", "🟪", "🟠", "🟡", "🔵", "🟣", "💜"]
 
-# --- ОГРОМНЫЕ СПИСКИ ТЕКСТОВ ---
 USE_RESPONSES = {
     "🔑": "Ты снял пояс верности и теперь снова можешь дрочить! 🤩",
     "💉": "Тестостерон резко прилил к херу и ты можешь дрочить! 💪",
@@ -75,119 +68,23 @@ def ensure_inv_dict(user) -> dict:
     return user["inventory"]
 
 
-# --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ РЮКЗАКА ---
-def ensure_backpacks(user):
-    inv = ensure_inv_dict(user)
-    backpack_count = inv.get("🎒", 0)
-    if "backpacks" not in user:
-        user["backpacks"] = []
+async def process_item_use(message: types.Message, item_emoji: str, get_user, save_db):
+    if item_emoji == "💦": return
 
-    # Добавляем новые рюкзаки, если их меньше чем 🎒 в инвентаре
-    while len(user["backpacks"]) < backpack_count:
-        user["backpacks"].append({
-            "id": str(uuid.uuid4())[:16],
-            "name": f"Рюкзак {len(user['backpacks']) + 1}",
-            "items": {}
-        })
-
-    # Синхронизируем инвентарь с базой (если отдал рюкзак)
-    if len(user["backpacks"]) > backpack_count:
-        inv["🎒"] = len(user["backpacks"])
-
-    if not user.get("active_backpack_id") and user["backpacks"]:
-        user["active_backpack_id"] = user["backpacks"][0]["id"]
-    return user["backpacks"]
-
-
-def get_active_backpack(user):
-    ensure_backpacks(user)
-    active_id = user.get("active_backpack_id")
-    for bp in user["backpacks"]:
-        if bp["id"] == active_id:
-            return bp
-    return user["backpacks"][0] if user["backpacks"] else None
-
-
-# --- ОСНОВНОЙ ОБРАБОТЧИК ИСПОЛЬЗОВАНИЯ ---
-async def process_item_use(message: types.Message, item_emoji_raw: str, get_user, save_db):
-    if not item_emoji_raw or item_emoji_raw == "💦":
-        return
-
-    parts = item_emoji_raw.split(maxsplit=1)
-    item_emoji = parts[0]
-
-    if item_emoji not in GAME_ITEMS and not item_emoji.startswith("🎒"):
+    if item_emoji not in GAME_ITEMS:
         return await message.reply("❌ <b>Такого предмета не существует.</b>", parse_mode="HTML")
 
     user = await get_user(message.from_user.id, message.from_user.username)
     inv_dict = ensure_inv_dict(user)
-    current_time = time.time()
+    chat_id = str(message.chat.id)
 
     if inv_dict.get(item_emoji, 0) <= 0:
         return await message.reply("❌ <b>У тебя нету такого предмета.</b>", parse_mode="HTML")
 
-    # --- ЛОГИКА РЮКЗАКА (🎒) ---
-    if item_emoji.startswith("🎒"):
-        ensure_backpacks(user)
-        active_bp = get_active_backpack(user)
-        if not active_bp:
-            return await message.reply("❌ Ошибка рюкзака. Купи рюкзак или выбери его в /select 🎒")
-
-        args_text = item_emoji_raw[1:].strip()
-
-        if args_text.lower() == "хелп":
-            help_text = (
-                "<b>Инструкция по 🎒 Рюкзаку:</b>\n\n"
-                "• <code>юз 🎒</code> — Содержимое активного рюкзака\n"
-                "• <code>юз 🎒 +[предмет] [кол-во]</code> — Положить в рюкзак\n"
-                "• <code>юз 🎒 -[предмет] [кол-во]</code> — Забрать из рюкзака\n"
-                "• <code>юз 🎒 имя [новое имя]</code> — Переименовать рюкзак\n"
-                "• <code>/select 🎒 [номер]</code> — Выбрать активный рюкзак\n"
-                "• <code>дать 🎒</code> — Передать активный рюкзак (ответом на сообщение)"
-            )
-            return await message.answer(help_text, parse_mode="HTML")
-
-        if args_text.lower().startswith("имя "):
-            new_name = args_text[4:].strip()
-            if not new_name: return await message.reply("Укажи имя!")
-            active_bp["name"] = new_name[:30]
-            await save_db(message.from_user.id, user)
-            return await message.reply(f"✅ Рюкзак переименован в «{html.escape(active_bp['name'])}»")
-
-        if args_text.startswith("+"):
-            match = re.match(r"\+([^\d\s\w\d]+)\s*(\d+)?", args_text)
-            if not match: return await message.reply("Пример: <code>юз 🎒 +🔑 10</code>", parse_mode="HTML")
-            emoji, amount = match.group(1), int(match.group(2)) if match.group(2) else 1
-            if inv_dict.get(emoji, 0) < amount:
-                return await message.reply(f"❌ У тебя нет столько {emoji} в инвентаре!")
-            inv_dict[emoji] -= amount
-            active_bp["items"][emoji] = active_bp["items"].get(emoji, 0) + amount
-            await save_db(message.from_user.id, user)
-            return await message.reply(f"Ты успешно положил в рюкзак {emoji} ({amount} шт.)!")
-
-        if args_text.startswith("-"):
-            match = re.match(r"\-([^\d\s\w\d]+)\s*(\d+)?", args_text)
-            if not match: return await message.reply("Пример: <code>юз 🎒 -🔑 10</code>", parse_mode="HTML")
-            emoji, amount = match.group(1), int(match.group(2)) if match.group(2) else 1
-            if active_bp["items"].get(emoji, 0) < amount:
-                return await message.reply(f"❌ В рюкзаке нет столько {emoji}!")
-            active_bp["items"][emoji] -= amount
-            if active_bp["items"][emoji] <= 0: del active_bp["items"][emoji]
-            inv_dict[emoji] = inv_dict.get(emoji, 0) + amount
-            await save_db(message.from_user.id, user)
-            return await message.reply(f"Ты успешно забрал из рюкзака {emoji} ({amount} шт.)!")
-
-        if not args_text:
-            content = []
-            for item_key in GAME_ITEMS.keys():
-                count = active_bp["items"].get(item_key, 0)
-                if count > 0: content.append(f"{count}{item_key}")
-            for emoji, count in active_bp["items"].items():
-                if emoji not in GAME_ITEMS and count > 0: content.append(f"{count}{emoji}")
-
-            res_txt = f"Содержимое рюкзака «{html.escape(active_bp['name'])}» 💣\n\n"
-            res_txt += ", ".join(content) if content else "Пусто..."
-            return await message.answer(res_txt, parse_mode="HTML")
+    current_time = time.time()
+    belt_expire = user.get("belt_expire_time", 0)
+    lock_reason = user.get("lock_reason")
+    is_locked = current_time < belt_expire
 
     # --- КИРПИЧ (🧱) ---
     if item_emoji == "🧱":
@@ -195,67 +92,116 @@ async def process_item_use(message: types.Message, item_emoji_raw: str, get_user
             return await message.reply(
                 "Чтобы использовать 🧱 <b>Кирпич</b>, нужно ответить на сообщение того, кого ты хочешь ебнуть!",
                 parse_mode="HTML")
+
         target_user_obj = message.reply_to_message.from_user
         if target_user_obj.id == message.from_user.id:
             return await message.reply("Зачем ты бьешь себя? Остановись! 🧱")
+
+        # Получаем данные цели
         target_data = await get_user(target_user_obj.id, target_user_obj.username)
         target_inv = ensure_inv_dict(target_data)
         target_name = html.escape(target_user_obj.full_name)
+
+        # 1. ПРОВЕРКА ЩИТА (🛡) - Многоразовый с КД
         if target_inv.get("🛡", 0) > 0:
             last_shield_use = target_data.get("last_shield_block_time", 0)
-            if current_time - last_shield_use >= 600:
+            if current_time - last_shield_use >= 600:  # 10 минут
                 target_data["last_shield_block_time"] = current_time
                 inv_dict["🧱"] -= 1
-                await save_db(message.from_user.id, user);
+                await save_db(message.from_user.id, user)
                 await save_db(target_user_obj.id, target_data)
                 return await message.answer(
-                    f"🛡 <b>{target_name}</b> отразил твой кирпич <b>Щитом великого дрочуна</b>!", parse_mode="HTML")
+                    f"🛡 <b>{target_name}</b> отразил твой кирпич <b>Щитом великого дрочуна</b>! Ебнуть не получилось.",
+                    parse_mode="HTML")
+
+        # 2. ПРОВЕРКА КАСКИ (🪖) - Одноразовая, защита работает пока есть в инвентаре
         if target_inv.get("🪖", 0) > 0 and target_data.get("helmet_active"):
-            target_inv["🪖"] -= 1
-            if target_inv["🪖"] <= 0: target_data["helmet_active"] = False
-            inv_dict["🧱"] -= 1
-            await save_db(message.from_user.id, user);
+            target_inv["🪖"] -= 1  # Каска ломается
+            # Если каски закончились, выключаем статус активной защиты
+            if target_inv["🪖"] <= 0:
+                target_data["helmet_active"] = False
+
+            inv_dict["🧱"] -= 1  # Кирпич тратится
+            await save_db(message.from_user.id, user)
             await save_db(target_user_obj.id, target_data)
             return await message.answer(
-                f"🪖 <b>{target_name}</b> выжил после удара кирпичом, но его <b>Каска</b> разлетелась!",
+                f"🪖 <b>{target_name}</b> выжил после удара кирпичом, но его <b>Каска</b> разлетелась в щепки! Минус кирпич и минус каска. 😳",
                 parse_mode="HTML")
+
+        # 3. ЕСЛИ НЕТ ЗАЩИТЫ - МУТ
         try:
             until_date = datetime.now() + timedelta(minutes=10)
-            await message.chat.restrict(user_id=target_user_obj.id,
-                                        permissions=ChatPermissions(can_send_messages=False), until_date=until_date)
+            await message.chat.restrict(
+                user_id=target_user_obj.id,
+                permissions=ChatPermissions(can_send_messages=False),
+                until_date=until_date
+            )
             inv_dict["🧱"] -= 1
             await save_db(message.from_user.id, user)
             return await message.answer(f"Ты ебнул <b>{target_name}</b> 🧱. Он замолчал на 10 минут.", parse_mode="HTML")
-        except:
-            return await message.reply("Ошибка прав или цели.")
+        except Exception:
+            return await message.reply(
+                "❌ <b>Ошибка!</b>\nЛибо я не админ, либо ты пытаешься ударить кирпичом того, кто в каске (админа).",
+                parse_mode="HTML")
 
-    # --- КАСКА (🪖) ---
+    # --- КАСКА (🪖) ВКЛЮЧЕНИЕ/ВЫКЛЮЧЕНИЕ ---
     if item_emoji == "🪖":
         is_active = user.get("helmet_active", False)
+        # Запрещаем включать, если касок нет
         if not is_active and inv_dict.get("🪖", 0) <= 0:
-            return await message.reply("❌ У тебя нет касок в инвентаре!", parse_mode="HTML")
+            return await message.reply("❌ У тебя нет касок в инвентаре, чтобы их включить! 🪖", parse_mode="HTML")
+
         user["helmet_active"] = not is_active
         await save_db(message.from_user.id, user)
-        return await message.reply(f"🪖 <b>Каска {'включена' if not is_active else 'выключена'}!</b>", parse_mode="HTML")
+        status = "включена" if not is_active else "выключена"
+        return await message.reply(
+            f"🪖 <b>Каска {status}!</b>\nТеперь она будет автоматически защищать тебя, пока каски не закончатся.",
+            parse_mode="HTML")
 
-    # --- ЩИТ (🛡) ---
+    # --- ЩИТ (🛡) Инфо ---
     if item_emoji == "🛡":
-        return await message.reply("🛡 <b>Щит великого дрочуна</b> работает автоматически.", parse_mode="HTML")
+        return await message.reply(
+            "🛡 <b>Щит великого дрочуна</b> работает автоматически. Он защитит тебя от кирпича раз в 10 минут, если лежит в инвентаре.",
+            parse_mode="HTML")
 
-    # --- ПРЕДМЕТЫ СНЯТИЯ БЛОКИРОВКИ ---
+    # --- ПРОВЕРКА СОСТОЯНИЯ ПЕРЕД ИСПОЛЬЗОВАНИЕМ ---
+    if item_emoji == "💉":
+        if lock_reason != "erection" or not is_locked:
+            return await message.reply("Твой член здоров. 👍 Шприц не нужен.", parse_mode="HTML")
+    elif item_emoji == "🛌":
+        if lock_reason != "mom" or not is_locked:
+            return await message.reply("Мамки нет рядом. 👍 Одеяло не нужно.", parse_mode="HTML")
+    elif item_emoji == "📕":
+        if lock_reason != "sadness" or not is_locked:
+            return await message.reply("Ты больше не грустишь. 👍 Журнал не нужен.", parse_mode="HTML")
+    elif item_emoji == "🔑":
+        if not is_locked or lock_reason in ["mom", "erection", "sadness"]:
+            return await message.reply("На тебе нет пояса верности! 👍 Ключ не нужен.", parse_mode="HTML")
+
+    # --- УСПЕШНОЕ ПРИМЕНЕНИЕ (💉, 🛌, 📕, 🔑) ---
     if item_emoji in ["💉", "🛌", "📕", "🔑"]:
         user["belt_expire_time"] = 0
         user["lock_reason"] = None
+        if "chats_data" in user and chat_id in user["chats_data"]:
+            user["chats_data"][chat_id]["last_droch_time"] = 0
+
         inv_dict[item_emoji] -= 1
         await save_db(message.from_user.id, user)
         return await message.reply(USE_RESPONSES.get(item_emoji, "Эффект снят!"), parse_mode="HTML")
 
     # --- КОТ (🐈) ---
     if item_emoji == "🐈":
+        last_use = user.get("last_cat_use_time", 0)
+        if current_time - last_use < 600:
+            rem = int((600 - (current_time - last_use)) / 60)
+            sec = int((600 - (current_time - last_use)) % 60)
+            return await message.reply(
+                f"🐈 <b>Кот наигрался и отдыхает.</b>\nСможешь погладить через {rem} мин {sec} сек.", parse_mode="HTML")
         user["stress"] = 0
+        user["last_cat_use_time"] = current_time
         await save_db(message.from_user.id, user)
         await message.answer_sticker(random.choice(CAT_STICKER_ID))
-        return await message.reply("Ты погладил своего кота! 🐈✨ Стресс на нуле.", parse_mode="HTML")
+        return await message.reply("Ты погладил своего кота! 🎏✨ Стресс на нуле.", parse_mode="HTML")
 
     # --- POP IT ---
     if item_emoji in POPPIT_ITEMS:
@@ -263,21 +209,23 @@ async def process_item_use(message: types.Message, item_emoji_raw: str, get_user
         inv_dict[item_emoji] -= 1
         await save_db(message.from_user.id, user)
         await message.answer_sticker(random.choice(POPPIT_STICKERS))
-        return await message.reply("Ты пощёлкал Pop It, стресс на нуле.", parse_mode="HTML")
+        return await message.reply("Ты пощёлкал Pop It, стресс на нуле. Жми: /drochnut", parse_mode="HTML")
 
     # --- ДОЗАТОР (🚰) ---
     if item_emoji == "🚰":
         is_active = user.get("spray_dispenser_active", False)
         user["spray_dispenser_active"] = not is_active
         await save_db(message.from_user.id, user)
-        return await message.reply(f"🚰 <b>Дозатор спрея {'включен' if not is_active else 'выключен'}!</b>",
-                                   parse_mode="HTML")
+        status = "включен" if not is_active else "выключен"
+        return await message.reply(
+            f"🚰 <b>Дозатор спрея {status}!</b>\nТеперь спреи будут тратиться автоматически при дрочке.",
+            parse_mode="HTML")
 
     # --- МЯЧ (🏀) ---
     if item_emoji == "🏀":
         return await message.reply_dice(emoji="🏀")
 
-    # --- ОБЩАЯ ЛОГИКА ---
+    # --- ОБЩАЯ ЛОГИКА ДЛЯ ОСТАЛЬНЫХ (Машины, Флаги, Книги) ---
     await save_db(message.from_user.id, user)
     response_data = USE_RESPONSES.get(item_emoji)
     if isinstance(response_data, list):
@@ -285,91 +233,35 @@ async def process_item_use(message: types.Message, item_emoji_raw: str, get_user
     elif isinstance(response_data, str):
         response_text = response_data
     else:
-        item_name = GAME_ITEMS.get(item_emoji, {}).get("name", "Неизвестный предмет")
+        item_name = GAME_ITEMS[item_emoji].get("name", "Неизвестный предмет")
         response_text = f"✅ Ты успешно использовал <b>{html.escape(item_name)}</b>."
 
-    await message.reply(response_text.replace("{name}", message.from_user.first_name), parse_mode="HTML")
+    user_name = html.escape(message.from_user.first_name or "Игрок")
+    response_text = response_text.replace("{name}", user_name)
+    await message.reply(response_text, parse_mode="HTML")
 
+    # Отправка видео, если оно есть
     video_list = USE_VIDEOS.get(item_emoji)
-    if video_list:
+    if video_list and len(video_list) > 0:
+        random_video = random.choice(video_list)
         try:
-            await message.reply_video(video=random.choice(video_list))
-        except:
+            await message.reply_video(video=random_video)
+        except Exception:
             pass
-
-
-# --- КОМАНДА ДАТЬ 🎒 (ПЕРЕДАЧА) ---
-@router.message(F.text.lower().startswith("дать 🎒"))
-async def integrated_give_backpack(message: types.Message, get_user, save_db):
-    if not message.reply_to_message:
-        return await message.reply("⚠️ Ответь на сообщение игрока, которому хочешь отдать активный рюкзак!")
-
-    s_user = await get_user(message.from_user.id, message.from_user.username)
-    t_user = await get_user(message.reply_to_message.from_user.id, message.reply_to_message.from_user.username)
-
-    s_inv, t_inv = ensure_inv_dict(s_user), ensure_inv_dict(t_user)
-    ensure_backpacks(s_user);
-    ensure_backpacks(t_user)
-
-    active_id = s_user.get("active_backpack_id")
-    bp_idx = next((i for i, b in enumerate(s_user["backpacks"]) if b["id"] == active_id), -1)
-
-    if bp_idx == -1: return await message.reply("❌ У тебя нет активного рюкзака!")
-
-    bp_to_move = s_user["backpacks"].pop(bp_idx)
-    total_items = sum(bp_to_move["items"].values())
-
-    s_inv["🎒"] -= 1
-    t_user["backpacks"].append(bp_to_move)
-    t_inv["🎒"] = len(t_user["backpacks"])
-
-    s_user["active_backpack_id"] = s_user["backpacks"][0]["id"] if s_user["backpacks"] else None
-    t_user["active_backpack_id"] = bp_to_move["id"]
-
-    await save_db(s_user["user_id"], s_user);
-    await save_db(t_user["user_id"], t_user)
-    target_name = message.reply_to_message.from_user.first_name
-    await message.answer(
-        f"✅ Передан рюкзак <b>«{html.escape(bp_to_move['name'])}»</b> [{total_items}] игроку {target_name}!",
-        parse_mode="HTML")
-
-
-# --- ВЫБОР РЮКЗАКА ПО НОМЕРУ ---
-@router.message(Command("select"))
-async def cmd_select_backpack(message: types.Message, command: CommandObject, get_user, save_db):
-    if not command.args or "🎒" not in command.args: return
-    user = await get_user(message.from_user.id, message.from_user.username)
-    ensure_backpacks(user)
-
-    args = command.args.split()
-    if len(args) > 1 and args[1].isdigit():
-        idx = int(args[1]) - 1
-        if 0 <= idx < len(user["backpacks"]):
-            user["active_backpack_id"] = user["backpacks"][idx]["id"]
-            await save_db(message.from_user.id, user)
-            return await message.answer(
-                f"✅ Рюкзак «{html.escape(user['backpacks'][idx]['name'])}» выбран как основной!")
-
-    lines = ["<b>Твои рюкзаки 🎒</b>\n<i>Для выбора: /select 🎒 [номер]</i>"]
-    for i, bp in enumerate(user["backpacks"], 1):
-        is_a = bp["id"] == user.get("active_backpack_id")
-        lines.append(f"{i}. {'✅' if is_a else '📦'} <b>{html.escape(bp['name'])}</b>")
-    await message.answer("\n".join(lines), parse_mode="HTML")
 
 
 @router.message(Command("use"))
 async def cmd_use(message: types.Message, get_user, save_db):
     args = message.text.split(maxsplit=1)
-    if len(args) < 2: return
+    if len(args) < 2:
+        return await message.reply("Укажи предмет. Пример: <code>/use 🔑</code>", parse_mode="HTML")
     await process_item_use(message, args[1].strip(), get_user, save_db)
 
 
 @router.message(F.text.lower().startswith("юз "))
 async def text_use(message: types.Message, get_user, save_db):
-    await process_item_use(message, message.text[3:].strip(), get_user, save_db)
-
-
-
-
+    item_emoji = message.text[3:].strip()
+    if not item_emoji: return
+    await process_item_use(message, item_emoji, get_user, save_db)
 
 
