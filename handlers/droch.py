@@ -6,8 +6,7 @@ from aiogram import types, F, Router
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-
-# Импортируем расчет баффов
+# Импорты
 from handlers.etel import get_user_buffs
 from handlers.ivent import get_random_event
 
@@ -15,6 +14,13 @@ router = Router()
 
 MSK_TZ = timezone(timedelta(hours=3))
 FARMCOIN_EMOJI = "💰"
+
+# Цены и данные предметов для событий
+EVENT_ITEMS_INFO = {
+    "mom": {"emoji": "🛌", "name": "Одеяло", "price": 15},
+    "erection": {"emoji": "💉", "name": "Шприц", "price": 7},
+    "sadness": {"emoji": "📕", "name": "журнал FamHub", "price": 7}
+}
 
 RANKS = {
     1: "🙋 Школьник",
@@ -80,15 +86,25 @@ def get_spray_markup(spray_count: int, user_id: int):
     return builder.as_markup()
 
 
-# --- Вспомогательная функция для кнопок снятия дебаффов ---
+# --- Обновленная функция для кнопок (ПРИМЕНЕНИЕ / ПОКУПКА / ТОРГОВЛЯ) ---
 def get_event_fix_markup(reason: str, inv: dict, user_id: int):
     builder = InlineKeyboardBuilder()
-    if reason == "mom" and inv.get("🛌", 0) > 0:
-        builder.button(text=f"🛌 Применить Одеяло ({inv['🛌']})", callback_data=f"fix_event:🛌:{user_id}")
-    elif reason == "erection" and inv.get("💉", 0) > 0:
-        builder.button(text=f"💉 Применить Шприц ({inv['💉']})", callback_data=f"fix_event:💉:{user_id}")
-    elif reason == "sadness" and inv.get("📕", 0) > 0:
-        builder.button(text=f"📕 Применить журнал FamHub ({inv['📕']})", callback_data=f"fix_event:📕:{user_id}")
+    info = EVENT_ITEMS_INFO.get(reason)
+
+    if not info: return None
+
+    emoji = info["emoji"]
+    name = info["name"]
+    price = info["price"]
+
+    # Если предмет есть — кнопка применения
+    if inv.get(emoji, 0) > 0:
+        builder.button(text=f"{emoji} Применить {name} ({inv[emoji]})", callback_data=f"fix_event:{emoji}:{user_id}")
+    else:
+        # Если предмета нет — кнопка купить и кнопка торговли
+        builder.button(text=f"{emoji} Купить {name} ({price}{FARMCOIN_EMOJI})",
+                       callback_data=f"buy_step1:{reason}:{user_id}")
+        builder.button(text="🤝 Найти в торговле", url="https://t.me/Tradedroch")
 
     if len(builder.as_markup().inline_keyboard) > 0:
         builder.adjust(1)
@@ -283,7 +299,41 @@ async def process_droch(message: types.Message, get_user, save_db):
                             parse_mode="HTML")
 
 
-# --- ОБРАБОТЧИК КНОПОК ИЗ СОБЫТИЙ (С ЗАЩИТОЙ) ---
+# --- ЭТАП 1: ПОКУПКА ПРЕДМЕТА "НА ЛЕТУ" ---
+@router.callback_query(F.data.startswith("buy_step1:"))
+async def callback_buy_step1(callback: types.CallbackQuery, get_user, save_db):
+    _, reason, owner_id = callback.data.split(":")
+    if callback.from_user.id != int(owner_id):
+        return await callback.answer("Это не твоё предложение!", show_alert=True)
+
+    user = await get_user(callback.from_user.id, callback.from_user.username)
+    inv = ensure_inv_dict(user)
+    info = EVENT_ITEMS_INFO.get(reason)
+    if not info: return await callback.answer("Ошибка данных.")
+
+    price = info["price"]
+    if inv.get(FARMCOIN_EMOJI, 0) < price:
+        return await callback.answer(f"Недостаточно ФармКоинов! Нужно {price}{FARMCOIN_EMOJI}", show_alert=True)
+
+    # Списываем монеты и ДОБАВЛЯЕМ предмет в инвентарь
+    inv[FARMCOIN_EMOJI] -= price
+    inv[info["emoji"]] = inv.get(info["emoji"], 0) + 1
+    await save_db(callback.from_user.id, user)
+
+    # Меняем сообщение на текст о покупке с кнопкой "Применить"
+    builder = InlineKeyboardBuilder()
+    builder.button(text=f"{info['emoji']} Применить {info['name']}",
+                   callback_data=f"fix_event:{info['emoji']}:{owner_id}")
+
+    await callback.message.edit_text(
+        f"Ты купил 1 {info['emoji']} за {price} {FARMCOIN_EMOJI}! 🐺",
+        parse_mode="HTML",
+        reply_markup=builder.as_markup()
+    )
+    await callback.answer("Успешно куплено!")
+
+
+# --- ЭТАП 2: ОБРАБОТЧИК КНОПОК ПРИМЕНЕНИЯ (С ЗАЩИТОЙ) ---
 @router.callback_query(F.data.startswith("fix_event:"))
 async def callback_fix_event(callback: types.CallbackQuery, get_user, save_db):
     _, item_emoji, owner_id = callback.data.split(":")
@@ -293,7 +343,7 @@ async def callback_fix_event(callback: types.CallbackQuery, get_user, save_db):
     user = await get_user(callback.from_user.id, callback.from_user.username)
     current_time = time.time()
 
-    # ПРОВЕРКА: Если блокировка уже снята (временем или другой кнопкой)
+    # ПРОВЕРКА: Если блокировка уже снята
     if current_time >= user.get("belt_expire_time", 0):
         already_ok_responses = {
             "💉": "Твой член здоров. 👍 Шприц не нужен.",
