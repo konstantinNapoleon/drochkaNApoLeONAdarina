@@ -30,15 +30,24 @@ def ensure_inv_dict(user) -> dict:
 
 
 def get_inventory_data(user_inventory: dict):
+    """Возвращает список предметов, отсортированных по порядку в GAME_ITEMS (каталоге)"""
     formatted_items = []
-    for item_emoji, count in user_inventory.items():
-        if count <= 0: continue
-        item_info = GAME_ITEMS.get(item_emoji, {"name": "Неизвестный предмет"})
-        item_name = item_info.get("name", "Неизвестный предмет")
+
+    # Сначала идем по каталогу, чтобы сохранить последовательность
+    for item_emoji, item_info in GAME_ITEMS.items():
         if item_emoji == FARMCOIN_EMOJI:
             continue
-        formatted_items.append(f"• {count} <code>{item_emoji}</code> {html.escape(item_name)}")
-    formatted_items.sort()
+
+        count = user_inventory.get(item_emoji, 0)
+        if count > 0:
+            item_name = item_info.get("name", "Неизвестный предмет")
+            formatted_items.append(f"• {count} <code>{item_emoji}</code> {html.escape(item_name)}")
+
+    # Затем добавляем предметы, которых нет в GAME_ITEMS (если вдруг такие есть в базе)
+    for emoji, count in user_inventory.items():
+        if emoji not in GAME_ITEMS and count > 0 and emoji != FARMCOIN_EMOJI:
+            formatted_items.append(f"• {count} <code>{emoji}</code> Вне каталога")
+
     return formatted_items
 
 
@@ -93,7 +102,6 @@ async def process_inventory_page(callback: types.CallbackQuery, get_user):
     if callback.from_user.id != owner_id:
         return await callback.answer("Это не твой инвентарь!", show_alert=True)
 
-    # ДОБАВЛЕН await
     user = await get_user(callback.from_user.id, callback.from_user.username)
     inv_dict = ensure_inv_dict(user)
 
