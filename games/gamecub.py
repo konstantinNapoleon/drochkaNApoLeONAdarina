@@ -221,6 +221,18 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
             f"🚰 <b>Дозатор спрея {status}!</b>\nТеперь спреи будут тратиться автоматически при дрочке.",
             parse_mode="HTML")
 
+        # --- ЛОГИКА СИНЕЙ КНИГИ (БЕЗ ТРАТЫ ПРЕДМЕТА) ---
+    if item_emoji == "📘":
+        craft_text = (
+            "<b>Список доступных крафтов ✨</b>\n\n"
+            "• 🚬 <b>Сигарета</b> — 1 📜 + 1 🍃\n"
+            "• 🏚️ <b>Халупа</b> — 50 🧱 + 3 🌫\n"
+            "• 🏠 <b>Дом</b> — 200 🧱 + 6 🌫\n"
+            "• 🏰 <b>Крепость</b> — 1000 🧱 + 10 🌫\n\n"
+            "<i>Ингредиенты можно найти в каталоге</i>"
+        )
+        return await message.reply(craft_text, parse_mode="HTML")
+
     # --- МЯЧ (🏀) ---
     if item_emoji == "🏀":
         return await message.reply_dice(emoji="🏀")

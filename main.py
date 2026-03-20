@@ -32,7 +32,7 @@ from handlers.etel import router as etel_router
 from games.cybik import router as cybik_router
 from games.igram import router as igram_router
 from handlers.ivent import router as ivent_router
-
+from craft.craftlogic import router as craft_router
 
 # --- НАСТРОЙКИ БОТА ---
 TOKEN = os.getenv("BOT_TOKEN")
@@ -183,6 +183,7 @@ async def main():
     dp.include_router(cybik_router)
     dp.include_router(igram_router)
     dp.include_router(ivent_router)
+    dp.include_router(craft_router)
 
     await bot.delete_webhook(drop_pending_updates=True)
     logger.info("🚀 БОТ ЗАПУЩЕН НА ОБЛАЧНОЙ БАЗЕ (SUPABASE)!")
