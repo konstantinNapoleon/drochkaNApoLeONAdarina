@@ -9,6 +9,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 # Импорты
 from handlers.etel import get_user_buffs
 from handlers.ivent import get_random_event
+from items import GAME_ITEMS  # Импорт базы предметов для получения инфо о дропе
 
 router = Router()
 
@@ -38,6 +39,23 @@ RANKS = {
     50000: "💎 Демиург Онанизма",
     100000: "👑 Хранитель семени"
 }
+
+
+# --- НОВОЕ: ПАССИВНЫЙ СПАД СТРЕССА ---
+def update_stress_decay(user):
+    """Снижает стресс на 1% каждые 15 секунд."""
+    current_time = time.time()
+    last_decay = user.get("last_stress_decay_time", current_time)
+    stress = user.get("stress", 0)
+
+    if stress > 0:
+        elapsed = current_time - last_decay
+        if elapsed >= 15:
+            decay_amount = int(elapsed // 15)
+            user["stress"] = max(0, stress - decay_amount)
+            user["last_stress_decay_time"] = last_decay + (decay_amount * 15)
+    else:
+        user["last_stress_decay_time"] = current_time
 
 
 def get_current_rank(droch_count: int) -> str:
@@ -122,6 +140,9 @@ def get_me_markup(user_id: int):
 
 
 def get_me_text(user, chat_id: str, full_name: str):
+    # ПРИМЕНЯЕМ ПАССИВНЫЙ СПАД СТРЕССА
+    update_stress_decay(user)
+
     chats_data = user.get("chats_data", {})
     inv = ensure_inv_dict(user)
 
@@ -184,6 +205,9 @@ async def callback_open_me(callback: types.CallbackQuery, get_user):
 
 async def process_droch(message: types.Message, get_user, save_db):
     user = await get_user(message.from_user.id, message.from_user.username)
+    # ПРИМЕНЯЕМ ПАССИВНЫЙ СПАД СТРЕССА
+    update_stress_decay(user)
+
     chat_id = str(message.chat.id)
     inv = ensure_inv_dict(user)
     spray_count = inv.get("💦", 0)
@@ -255,6 +279,23 @@ async def process_droch(message: types.Message, get_user, save_db):
 
     chat_stats["masturbations_count"] += 1
 
+    # --- НОВОЕ: ШАНС 5% НА ВЫПАДЕНИЕ ПРЕДМЕТА ---
+    drop_info_text = ""
+    if random.random() < 0.05:
+        drop_pool = ["💜", "🔴", "🟠", "🟡", "🟢", "🔵", "🟣", "🟪", "📕", "💦", "🔑", "💉"]
+        selected_item = random.choice(drop_pool)
+        amount = random.randint(1, 7)
+
+        # Добавляем в инвентарь
+        inv[selected_item] = inv.get(selected_item, 0) + amount
+
+        # Получаем данные из GAME_ITEMS
+        item_data = GAME_ITEMS.get(selected_item, {})
+        it_name = item_data.get("name", "Неизвестный предмет")
+        it_desc = item_data.get("description", "Без описания")
+
+        drop_info_text = f"\n\nТы получил {selected_item} <b>{it_name}</b>: {it_desc} (<b>{amount}</b>)"
+
     # Исправленное обновление ранга
     old_rank = user.get("rank", "👶 Новичок")
     total_droch = get_real_total(user) + 1  # Используем функцию исправления
@@ -291,10 +332,10 @@ async def process_droch(message: types.Message, get_user, save_db):
     await save_db(message.from_user.id, user)
 
     if dispenser_triggered:
-        reply_text = f"Ты успешно вздрочнул! 😼\nНа твоем счету <b>{chat_stats['masturbations_count']}</b> вздрочки.\n\n🚰 Дозатор спрея сработал и теперь можешь дрочить ещё раз!"
+        reply_text = f"Ты успешно вздрочнул! 😼\nНа твоем счету <b>{chat_stats['masturbations_count']}</b> вздрочки.{drop_info_text}\n\n🚰 Дозатор спрея сработал и теперь можешь дрочить ещё раз!"
         await message.reply(reply_text, parse_mode="HTML")
     else:
-        reply_text = f"Ты успешно вздрочнул! 😼\nНа твоем счету <b>{chat_stats['masturbations_count']}</b> вздрочки."
+        reply_text = f"Ты успешно вздрочнул! 😼\nНа твоем счету <b>{chat_stats['masturbations_count']}</b> вздрочки.{drop_info_text}"
         await message.reply(reply_text, reply_markup=get_spray_markup(inv.get("💦", 0), message.from_user.id),
                             parse_mode="HTML")
 
@@ -435,3 +476,4 @@ async def use_spray_cmd(message: types.Message, get_user, save_db):
         await message.reply("Ты применил <b>спрей</b>! 🌼 Жми: /drochnut", parse_mode="HTML")
     else:
         await message.reply("Спрей сейчас не нужен!")
+
