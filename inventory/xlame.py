@@ -14,10 +14,25 @@ FARMCOIN = "💰"
 # Юзернейм чата, где разрешен поиск (без @)
 ALLOWED_CHAT = "factory_droch_bot"
 
-# --- СПИСОК ЭМОДЗИ ДЛЯ ЗАВОДА (17 шт) ---
+# --- ОБНОВЛЕННЫЙ СПИСОК ЭМОДЗИ ДЛЯ ЗАВОДА (включая редкие для отображения в /lom) ---
 FACTORY_LOOT_POOL = [
-    "🔧", "🔩", "⚙️", "📦", "🪑", "🔨", "☎️", "📺", "🧥", "🍃", "📜"
+    "🔧", "🔩", "⚙️", "📦", "🪑", "🔨", "☎️", "📺", "🧥", "🍃", "📜", "🧱"
 ]
+
+# --- ТАБЛИЦА ШАНСОВ ДЛЯ ПОИСКА ---
+def get_weighted_loot():
+    roll = random.uniform(0, 100)
+    if roll <= 0.1:  # 0.1%
+        return random.choice(["🦋", "💐"])
+    if roll <= 1.0:  # 1%
+        return random.choice(["🎧"])
+    if roll <= 10.0: # 10%
+        return random.choice(["🕳"])
+    if roll <= 20.0: # 20%
+        return random.choice([])
+    if roll <= 50.0: # 50%
+        return random.choice(["💦"])
+    return  "📜", "🍃", "🔧", "🔩", "⚙️"     # 100% (базовый дроп)
 
 # --- СПИСОК КРЕАТИВНЫХ ОПИСАНИЙ (УСПЕХ) ---
 SEARCH_TEXTS = [
@@ -32,24 +47,22 @@ SEARCH_TEXTS = [
 FAIL_TEXTS = [
     "Ты битый час бродил по пустым цехам, но нашел только вековую пыль и сквозняк.",
     "Издалека послышался лай собак и свет фонарей охраны. Тебе пришлось затаиться и уйти ни с чем.",
-    "Все ящики в этом секторе оказались абсолютно пустыми. Видимо, кто-то обыскал их до тебя."
+    "Все ящики в этом секторе оказались абсолютно пустыми. Видимо, кто-то обыскал их до тебя.",
     "Ты подумал о маме и папе что они остались одни дома и вернулся назад."
 ]
 
-# --- ЛОГИКА РЫНКА (5 случайных предметов) ---
+# --- ЛОГИКА РЫНКА ---
 market_prices = {}
 next_market_update = 0
-
 
 def update_market():
     global market_prices, next_market_update
     now = time.time()
     if now >= next_market_update:
-        # Выбираем 5 случайных предметов из 17 возможных
-        selected_items = random.sample(FACTORY_LOOT_POOL, 5)
+        junk_pool = ["🔧", "🔩", "⚙️", "📦", "🪑", "🔨", "☎️", "📺", "🧥"]
+        selected_items = random.sample(junk_pool, 5)
         market_prices = {item: random.randint(10, 200) for item in selected_items}
         next_market_update = now + 3600
-
 
 def ensure_inv_dict(user) -> dict:
     inv = user.get("inventory")
@@ -62,8 +75,7 @@ def ensure_inv_dict(user) -> dict:
             user["inventory"] = {}
     return user["inventory"]
 
-
-# --- КОМАНДА /search (Четные/Нечетные по МСК) ---
+# --- КОМАНДА /search ---
 @router.message(Command("search"))
 async def cmd_search(message: types.Message, get_user, save_db):
     if message.chat.username != ALLOWED_CHAT:
@@ -91,17 +103,25 @@ async def cmd_search(message: types.Message, get_user, save_db):
     user = await get_user(message.from_user.id, message.from_user.username)
     inv = ensure_inv_dict(user)
 
+    # --- ПРОВЕРКА КЛУБНИКИ (🍓) ---
+    has_strawberry = inv.get("🍓", 0) > 0
+    multiplier = 2 if has_strawberry else 1
+    strawberry_prefix = "[🍓] " if has_strawberry else ""
+
     found = {}
-    item1 = random.choice(FACTORY_LOOT_POOL)
-    count1 = random.randint(1, 4)
+    # Первый предмет
+    item1 = get_weighted_loot()
+    count1 = random.randint(1, 4) * multiplier
     found[item1] = count1
 
+    # Шанс на двойную добычу (два разных предмета)
     is_lucky = False
     if random.random() < 0.09:
         is_lucky = True
-        item2 = random.choice(FACTORY_LOOT_POOL)
-        found[item2] = found.get(item2, 0) + random.randint(1, 4)
+        item2 = get_weighted_loot()
+        found[item2] = found.get(item2, 0) + (random.randint(1, 4) * multiplier)
 
+    # Сохранение в инвентарь
     for it, cnt in found.items():
         inv[it] = inv.get(it, 0) + cnt
     await save_db(message.from_user.id, user)
@@ -115,14 +135,11 @@ async def cmd_search(message: types.Message, get_user, save_db):
 
     for it, cnt in found.items():
         item_data = GAME_ITEMS.get(it, {})
-        name = item_data.get("name", "Неизвестный хлам")
-        text += f"📦 {it} <b>{name}</b> (+{cnt})\n"
-
-    if is_lucky:
-        text += "\n🍀 <b>ебать! Тебе повезло найти двойную добычу!</b>"
+        name = item_data.get("name", "Неизвестный предмет")
+        # Добавляем префикс [🍓], если работает удвоение
+        text += f"{strawberry_prefix} {it} <b>{name}</b> (+{cnt})\n"
 
     await message.reply(text, parse_mode="HTML")
-
 
 # --- КОМАНДА /lom ---
 @router.message(Command("lom"))
@@ -143,8 +160,7 @@ async def cmd_lom(message: types.Message, get_user):
     text += f"\n💰 Сбыть товар можно на рынке: /mgz"
     await message.reply(text, parse_mode="HTML")
 
-
-# --- КОМАНДА /mgz (Только 5 товаров) ---
+# --- КОМАНДА /mgz ---
 @router.message(Command("mgz"))
 async def cmd_mgz(message: types.Message):
     update_market()
@@ -170,8 +186,7 @@ async def cmd_mgz(message: types.Message):
 
     await message.reply(text, parse_mode="HTML")
 
-
-# --- ТОЧЕЧНАЯ ПРОДАЖА ПРЕДМЕТА ---
+# --- ПРОДАЖА ---
 @router.message(F.text.lower().startswith("продать "))
 async def sell_specific_item(message: types.Message, get_user, save_db):
     update_market()
@@ -182,19 +197,16 @@ async def sell_specific_item(message: types.Message, get_user, save_db):
 
     item_emoji = parts[1]
 
-    # 1. Проверяем, есть ли предмет на рынке сейчас
     if item_emoji not in market_prices:
         return await message.reply("🍂 Ты захотел продать хлам, но он никому не был интересен.")
 
     user = await get_user(message.from_user.id, message.from_user.username)
     inv = ensure_inv_dict(user)
 
-    # Сколько штук у игрока
     user_has = inv.get(item_emoji, 0)
     if user_has <= 0:
         return await message.reply(f"🙊 У тебя нет предмета {item_emoji} в инвентаре.")
 
-    # 2. Определяем количество для продажи
     amount_to_sell = user_has
     if len(parts) >= 3:
         try:
@@ -204,11 +216,9 @@ async def sell_specific_item(message: types.Message, get_user, save_db):
         except:
             pass
 
-    # 3. Считаем прибыль
     price = market_prices[item_emoji]
     total_profit = amount_to_sell * price
 
-    # 4. Процесс сделки
     inv[item_emoji] -= amount_to_sell
     if inv[item_emoji] <= 0:
         del inv[item_emoji]

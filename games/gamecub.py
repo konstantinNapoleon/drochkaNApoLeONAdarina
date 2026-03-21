@@ -12,6 +12,7 @@ router = Router()
 # СТИКЕРЫ
 POPPIT_STICKERS = ["CAACAgIAAxkBAAEQxE1puHx0R6iBBX-FirEhnYj38TLOFQACMg4AAm1c0Ei6RlcE9wmVFToE"]
 CAT_STICKER_ID = ["CAACAgIAAxkBAAEQxkZpunAQzNfxqeo7ZHe8vEzqVJT7ZAACrRIAAiHm6ErMPS5b666L7ToE"]
+MUTE_STICKER = "CAACAgIAAxkBAAEQy2ZpvnCswPfY_0Kf45HGsFICi0I5uAACAQwAAt4zwEt7E1Fhuh-zuzoE"
 
 # Список предметов Pop It
 POPPIT_ITEMS = ["🔴", "🟢", "🟪", "🟠", "🟡", "🔵", "🟣", "💜"]
@@ -23,7 +24,7 @@ USE_RESPONSES = {
     "📕": "Ты полистал журнал FamHub и грусть как рукой сняло! 📕✨",
     "🚛": "Ты сел в рейс с дядей Федором. Гони, гони, быстрее.",
     "🔰": "Ты потряс значком <b>Летофага</b> 🔰. Приехал 410 автобус и увез тебя в Лагерь Совенок. ",
-    "🏴‍☠️": "Ты потряс флагом карибского моря 🏴‍☠️. Приплыл Джек Воробей.",
+    "🏴‍☠️": "Ты потряс флагом <b>Карибского моря</b> 🏴‍☠️. Приплыл Джек Воробей.",
     "🏳️‍⚧️": "Ты потряс флагом <b>Miside</b> 🏳️‍⚧️. Пришла Мита и превратила тебя в картридж.",
     "🚚": "https://youtu.be/OcX68KbSYD8?si=xpN2flT0ukLnBhOC",
     "📗": [
@@ -138,7 +139,8 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
             )
             inv_dict["🧱"] -= 1
             await save_db(message.from_user.id, user)
-            return await message.answer(f"Ты ебнул <b>{target_name}</b> 🧱. Он замолчал на 10 минут.", parse_mode="HTML")
+            await message.answer(f"Ты ебнул <b>{target_name}</b> 🧱. Он замолчал на 10 минут.", parse_mode="HTML")
+            return await message.answer_sticker(sticker=MUTE_STICKER)
         except Exception:
             return await message.reply(
                 "❌ <b>Ошибка!</b>\nЛибо я не админ, либо ты пытаешься ударить кирпичом того, кто в каске (админа).",
@@ -216,7 +218,7 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
         is_active = user.get("spray_dispenser_active", False)
         user["spray_dispenser_active"] = not is_active
         await save_db(message.from_user.id, user)
-        status = "включен" if not is_active else "выключен"
+        status = "включен" if not is_active else "выключена"
         return await message.reply(
             f"🚰 <b>Дозатор спрея {status}!</b>\nТеперь спреи будут тратиться автоматически при дрочке.",
             parse_mode="HTML")
