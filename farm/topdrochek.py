@@ -22,6 +22,12 @@ def get_top_kb(current_view="users"):
         types.InlineKeyboardButton(text="🔥 Сегодня", callback_data="top_today"),
         types.InlineKeyboardButton(text="📅 Неделя", callback_data="top_week")
     )
+    # --- НОВОЕ: КНОПКИ ДЛЯ ХУЕВ ---
+    builder.row(
+        types.InlineKeyboardButton(text="🍆 Хуи чата", callback_data="top_penis_chat"),
+        types.InlineKeyboardButton(text="🍆 Хуи", callback_data="top_penis_global")
+    )
+    # ----------------------------
     builder.row(types.InlineKeyboardButton(text="❌ Закрыть", callback_data="close_top"))
     return builder.as_markup()
 
@@ -33,7 +39,6 @@ async def cmd_top_droch(message: types.Message, get_all_users):
 
     scores = []
     for u in all_users.values():
-        # Считаем сумму по ВСЕМ чатам (и ЛС, и Группы), чтобы игрок видел свой полный прогресс
         total_score = sum(c.get("masturbations_count", 0) for c in u.get("chats_data", {}).values())
         if total_score > 0:
             scores.append({
@@ -79,7 +84,6 @@ async def process_top_chats(callback: types.CallbackQuery, get_all_users):
 
     for user_data in all_users.values():
         for chat_id, chat_stats in user_data.get("chats_data", {}).items():
-            # ОСТАВЛЯЕМ ПРОВЕРКУ: считаем только группы (ID < 0), чтобы ЛС не попадали в список чатов
             if int(chat_id) < 0:
                 count = chat_stats.get("masturbations_count", 0)
                 if count > 0:
@@ -116,27 +120,51 @@ async def process_top_today(callback: types.CallbackQuery, get_all_users):
     await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_top_kb("today"))
 
 
+# --- НОВОЕ: ТОП ХУЕВ ГЛОБАЛЬНЫЙ ---
+@router.callback_query(F.data == "top_penis_global")
+async def process_top_penis_global(callback: types.CallbackQuery, get_all_users):
+    all_users = await get_all_users()
+
+    penis_scores = []
+    for u in all_users.values():
+        size = u.get("penis_size", 0)
+        if size > 0:
+            penis_scores.append({
+                "name": u.get("first_name") or u.get("username") or "Аноним",
+                "size": size
+            })
+
+    sorted_penis = sorted(penis_scores, key=lambda x: x["size"], reverse=True)
+    text = "🍆 <b>ТОП-15 САМЫХ БОЛЬШИХ ХУЕВ:</b>\n\n" + "".join(
+        [f"<b>{i}.</b> {html.escape(str(u['name']))} — {u['size']} см\n" for i, u in enumerate(sorted_penis[:15], 1)]
+    )
+    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_top_kb("penis_global"))
+
+
+# --- НОВОЕ: ТОП ХУЕВ ЧАТА ---
+@router.callback_query(F.data == "top_penis_chat")
+async def process_top_penis_chat(callback: types.CallbackQuery, get_all_users):
+    all_users = await get_all_users()
+    chat_id = str(callback.message.chat.id)
+
+    penis_scores = []
+    for u in all_users.values():
+        # Проверяем, есть ли пользователь в этом чате
+        if chat_id in u.get("chats_data", {}):
+            size = u.get("penis_size", 0)
+            if size > 0:
+                penis_scores.append({
+                    "name": u.get("first_name") or u.get("username") or "Аноним",
+                    "size": size
+                })
+
+    sorted_penis = sorted(penis_scores, key=lambda x: x["size"], reverse=True)
+    text = f"🍆 <b>ТОП-15 ХУЕВ ЧАТА:</b>\n\n" + "".join(
+        [f"<b>{i}.</b> {html.escape(str(u['name']))} — {u['size']} см\n" for i, u in enumerate(sorted_penis[:15], 1)]
+    )
+    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_top_kb("penis_chat"))
+
+
 @router.callback_query(F.data == "back_to_top_users")
 async def back_to_users(callback: types.CallbackQuery, get_all_users):
     all_users = await get_all_users()
-
-    scores = []
-    for u in all_users.values():
-        # Повторяем логику полного зачета для кнопки "Назад"
-        total_score = sum(c.get("masturbations_count", 0) for c in u.get("chats_data", {}).values())
-        if total_score > 0:
-            scores.append({
-                "name": u.get("first_name") or u.get("username") or "Аноним",
-                "score": total_score
-            })
-
-    scores = sorted(scores, key=lambda x: x["score"], reverse=True)
-
-    text = "🏆 <b>ТОП-15 ДРОЧЕРОВ (ВСЁ ВРЕМЯ):</b>\n\n" + "".join(
-        [f"<b>{i}.</b> {html.escape(str(u['name']))} — {u['score']} раз\n" for i, u in enumerate(scores[:15], 1)])
-    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_top_kb("users"))
-
-
-@router.callback_query(F.data == "close_top")
-async def close_top_menu(callback: types.CallbackQuery):
-    await callback.message.delete()

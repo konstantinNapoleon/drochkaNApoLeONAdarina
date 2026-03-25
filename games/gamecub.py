@@ -223,7 +223,25 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
             f"🚰 <b>Дозатор спрея {status}!</b>\nТеперь спреи будут тратиться автоматически при дрочке.",
             parse_mode="HTML")
 
-        # --- ЛОГИКА СИНЕЙ КНИГИ (БЕЗ ТРАТЫ ПРЕДМЕТА) ---
+    # --- НОВОЕ: ЛУПЫ (🔎 и 🔍) ---
+    if item_emoji in ["🔎", "🔍"]:
+        bonus = 100 if item_emoji == "🔎" else 1000
+        # Базовая инициализация, если размера нет
+        if "penis_size" not in user:
+            user["penis_size"] = 10
+
+        user["penis_size"] += bonus
+        inv_dict[item_emoji] -= 1
+
+        item_name = GAME_ITEMS[item_emoji].get("name", "Лупа")
+        await save_db(message.from_user.id, user)
+        return await message.reply(
+            f"🔸 Ты успешно применил {item_emoji} <b>{item_name}</b>. Твой хуй стал больше на <b>{bonus} см</b>.\n"
+            f"Новый размер — <b>{user['penis_size']} см</b>.",
+            parse_mode="HTML"
+        )
+
+    # --- ЛОГИКА СИНЕЙ КНИГИ (БЕЗ ТРАТЫ ПРЕДМЕТА) ---
     if item_emoji == "📘":
         craft_text = (
             "<b>Список доступных крафтов ✨</b>\n\n"
