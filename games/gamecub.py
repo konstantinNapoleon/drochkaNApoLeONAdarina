@@ -237,7 +237,7 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
         await save_db(message.from_user.id, user)
         return await message.reply(
             f"🔸 Ты успешно применил {item_emoji} <b>{item_name}</b>. Твой хуй стал больше на <b>{bonus} см</b>.\n"
-            f"Новый размер — <b>{user['penis_size']} см</b>.",
+            f"❤️‍🔥 Новый размер — <b>{user['penis_size']} см</b>.",
             parse_mode="HTML"
         )
 

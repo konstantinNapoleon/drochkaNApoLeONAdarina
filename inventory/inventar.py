@@ -142,8 +142,8 @@ async def process_close_inventory(callback: types.CallbackQuery):
 # --- БОНУС-КОДЫ ---
 
 BONUS_CODES = {
-  "УРА_ОБНОВА": {
-    "rewards": {"💰": 7500, "🍺": 11, "🎂": 1, "🔑": 11},
+  "РОСТ_ХУЯ": {
+    "rewards": {"🔎": 5},
     "limit": 1000,
     "used_count": 0,
     "expires": datetime.datetime(2026, 5, 1),
