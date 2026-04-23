@@ -452,7 +452,7 @@ async def cmd_drochnut(message: types.Message, get_user, save_db):
     await process_droch(message, get_user, save_db)
 
 
-@router.message(F.text.lower().in_({"дрочнуть", "юз рука", "юз хуй"}))
+@router.message(F.text.lower().in_({"дрочнуть", "юз рука", "юз хуй", "дрочить", "юз 🍌"}))
 async def text_drochnut(message: types.Message, get_user, save_db):
     await process_droch(message, get_user, save_db)
 

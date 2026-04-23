@@ -118,7 +118,7 @@ async def process_inventory_page(callback: types.CallbackQuery, get_user):
     name = html.escape(callback.from_user.first_name or "Игрок")
     response = (
         f"🎒 Твой инвентарь, <b>{name}</b>\n\n"
-        f"{FARMCOIN_EMOJI} ФармКоин: <b>{farmcoin_count:,}</b>\n\n"
+        f"{FARMCOIN_EMOJI} ФармКоин: <b>{farmcoin_count:,}</b>\n"
         f"{inventory_render}"
     )
 
@@ -142,8 +142,8 @@ async def process_close_inventory(callback: types.CallbackQuery):
 # --- БОНУС-КОДЫ ---
 
 BONUS_CODES = {
-  "РОСТ_ХУЯ": {
-    "rewards": {"🔎": 5},
+  "ВОЗРОЖДЕНИЕ": {
+    "rewards": {"💰": 8700, "🏆": 1, "🧢": 1},
     "limit": 1000,
     "used_count": 0,
     "expires": datetime.datetime(2026, 5, 1),

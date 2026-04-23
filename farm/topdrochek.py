@@ -24,8 +24,8 @@ def get_top_kb(current_view="users"):
     )
     # --- НОВОЕ: КНОПКИ ДЛЯ ХУЕВ ---
     builder.row(
-        types.InlineKeyboardButton(text="🍆 Хуи чата", callback_data="top_penis_chat"),
-        types.InlineKeyboardButton(text="🍆 Хуи", callback_data="top_penis_global")
+        types.InlineKeyboardButton(text="🍌 Хуи чата", callback_data="top_penis_chat"),
+        types.InlineKeyboardButton(text="🍌 Хуи", callback_data="top_penis_global")
     )
     # ----------------------------
     builder.row(types.InlineKeyboardButton(text="❌ Закрыть", callback_data="close_top"))
@@ -135,7 +135,7 @@ async def process_top_penis_global(callback: types.CallbackQuery, get_all_users)
             })
 
     sorted_penis = sorted(penis_scores, key=lambda x: x["size"], reverse=True)
-    text = "🍆 <b>ТОП-15 САМЫХ БОЛЬШИХ ХУЕВ:</b>\n\n" + "".join(
+    text = "🍌 <b>ТОП-15 САМЫХ БОЛЬШИХ ХУЕВ:</b>\n\n" + "".join(
         [f"<b>{i}.</b> {html.escape(str(u['name']))} — {u['size']} см\n" for i, u in enumerate(sorted_penis[:15], 1)]
     )
     await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_top_kb("penis_global"))
@@ -159,7 +159,7 @@ async def process_top_penis_chat(callback: types.CallbackQuery, get_all_users):
                 })
 
     sorted_penis = sorted(penis_scores, key=lambda x: x["size"], reverse=True)
-    text = f"🍆 <b>ТОП-15 ХУЕВ ЧАТА:</b>\n\n" + "".join(
+    text = f"🍌 <b>ТОП-15 ХУЕВ ЧАТА:</b>\n\n" + "".join(
         [f"<b>{i}.</b> {html.escape(str(u['name']))} — {u['size']} см\n" for i, u in enumerate(sorted_penis[:15], 1)]
     )
     await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_top_kb("penis_chat"))
