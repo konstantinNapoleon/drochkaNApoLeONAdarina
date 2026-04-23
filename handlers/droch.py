@@ -40,12 +40,19 @@ RANKS = {
     100000: "👑 Хранитель семени"
 }
 
+import time
 
-# --- НОВОЕ: ПАССИВНЫЙ СПАД СТРЕССА ---
+
 def update_stress_decay(user):
-    """Снижает стресс на 1% каждые 15 секунд."""
-    current_time = time.time()
-    last_decay = user.get("last_stress_decay_time", current_time)
+    """Снижает стресс на 1 ед. каждые 15 секунд."""
+    current_time = int(time.time())
+
+    # Если времени спада еще нет, задаем его прямо сейчас и ждем 15 сек.
+    if user.get("last_stress_decay_time") is None:
+        user["last_stress_decay_time"] = current_time
+        return user
+
+    last_decay = user["last_stress_decay_time"]
     stress = user.get("stress", 0)
 
     if stress > 0:
@@ -53,9 +60,13 @@ def update_stress_decay(user):
         if elapsed >= 15:
             decay_amount = int(elapsed // 15)
             user["stress"] = max(0, stress - decay_amount)
+            # Сдвигаем время на количество прошедших 15-секундных интервалов
             user["last_stress_decay_time"] = last_decay + (decay_amount * 15)
     else:
+        # Если стресса нет, просто обновляем таймер, чтобы он не копил "долг"
         user["last_stress_decay_time"] = current_time
+
+    return user
 
 
 def get_current_rank(droch_count: int) -> str:
