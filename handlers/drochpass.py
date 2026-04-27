@@ -273,25 +273,40 @@ async def handle_pass_menu_callbacks(query: types.CallbackQuery, callback_data: 
 # --- ОБРАБОТЧИК КНОПКИ "ЗАБРАТЬ" ---
 @router.callback_query(PassMenu.filter(F.action == "claim"))
 async def claim_pass_reward(query: types.CallbackQuery, callback_data: PassMenu, get_user, save_db):
+    print(f"DEBUG: Нажата кнопка Claim для уровня {callback_data.level}")  # Это в консоль
+
+    # Отправляем ответ в телеграм, чтобы увидеть, что бот вообще получил нажатие
+    await query.answer("Обработка...")
+
     user = await get_user(query.from_user.id, query.from_user.username)
     user = ensure_user_pass_data(user)
     pass_data = user["pass"]
     level_to_claim = callback_data.level
+
+    # Проверка условий
     if level_to_claim >= pass_data["level"]:
         return await query.answer("Ты еще не достиг этого уровня!", show_alert=True)
-    if level_to_claim in pass_data["claimed_levels"]:
-        return await query.answer("Награда уже была получена.", show_alert=True)
-    level_data = PASS_LEVELS[level_to_claim]
 
-    # ИСПОЛЬЗУЕМ СТАНДАРТ:
+    if level_to_claim in pass_data.get("claimed_levels", []):
+        return await query.answer("Награда уже была получена.", show_alert=True)
+
+    # Логика выдачи
+    level_data = PASS_LEVELS[level_to_claim]
     inv = ensure_inv_dict(user)
 
-    for r_type, r_id, r_count in level_data["rewards"]:
+    for r_type, r_id, r_count in level_data.get("rewards", []):
         inv[r_id] = inv.get(r_id, 0) + r_count
-    pass_data["claimed_levels"].append(level_to_claim)
 
-    # Сохраняем (user уже содержит обновленный inv через reference)
-    await save_db(query.from_user.id, user)
+    pass_data.setdefault("claimed_levels", []).append(level_to_claim)
+
+    # Сохранение
+    try:
+        await save_db(query.from_user.id, user)
+        print("DEBUG: Успешно сохранено в БД")
+    except Exception as e:
+        print(f"DEBUG: ОШИБКА БД: {e}")
+        return await query.answer(f"Ошибка БД: {e}", show_alert=True)
+
     await query.answer("✅ Награда успешно получена!", show_alert=True)
     await handle_pass_menu_callbacks(query, PassMenu(action="view_levels", level=level_to_claim), get_user, save_db)
 
