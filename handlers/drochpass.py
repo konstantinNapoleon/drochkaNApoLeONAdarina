@@ -290,24 +290,27 @@ async def claim_pass_choice_reward(query: types.CallbackQuery, callback_data: Le
 
 
 # --- ВНЕШНЯЯ ФУНКЦИЯ ДЛЯ ДОБАВЛЕНИЯ ПРОГРЕССА В КВЕСТЫ ---
+# --- ВНЕШНЯЯ ФУНКЦИЯ ДЛЯ ДОБАВЛЕНИЯ ПРОГРЕССА В КВЕСТЫ ---
 async def add_quest_progress(user_id: int, quest_type: str, amount: int, get_user, save_db, bot: Bot):
-    user = await get_user(user_id, None)
-    user = ensure_user_pass_data(user)
-    tasks = user["pass"]["quests"].get("tasks", {})
-    updated = False
-    for quest_id, data in tasks.items():
-        if data["completed"]: continue
-        quest_info = DAILY_QUESTS[quest_id]
-        if quest_info["type"] == quest_type:
-            data["progress"] = min(data["progress"] + amount, quest_info["target"])
-            if data["progress"] >= quest_info["target"]:
-                data["completed"] = True
-                user["pass"]["xp"] += quest_info["reward"]
-                await bot.send_message(user_id, f"✅ Задание выполнено: *{quest_info['text'].format(quest_info['target'])}*\nТы получил +{quest_info['reward']} {PEACH}!")
-            updated = True
-    if updated:
-        await save_db(user_id, user)
+  user = await get_user(user_id, None)
+  user = ensure_user_pass_data(user)
+  tasks = user["pass"]["quests"].get("tasks", {})
+  updated = False
+  for quest_id, data in tasks.items():
+    if data["completed"]: continue
+    quest_info = DAILY_QUESTS[quest_id]
+    if quest_info["type"] == quest_type:
+      data["progress"] = min(data["progress"] + amount, quest_info["target"])
+      if data["progress"] >= quest_info["target"]:
+        data["completed"] = True
+        user["pass"]["xp"] += quest_info["reward"]
+        # Уведомление пользователю
+        await bot.send_message(user_id, f"✅ Задание выполнено: *{quest_info['text'].format(quest_info['target'])}*\nТы получил +{quest_info['reward']} {PEACH}!", parse_mode="Markdown")
+      updated = True
+  if updated:
+    await save_db(user_id, user)
 
+# ВЫНЕСЕННЫЙ ХЕНДЛЕР (исправлено)
 @router.message(F.chat.id == QUEST_CHAT_ID)
 async def track_chat_messages(message: types.Message, get_user, save_db, bot: Bot):
-    await add_quest_progress(message.from_user.id, "messages", 1, get_user, save_db, bot)
+  await add_quest_progress(message.from_user.id, "messages", 1, get_user, save_db, bot)
