@@ -384,30 +384,3 @@ async def add_quest_progress(user_id: int, quest_type: str, amount: int, get_use
 
     if updated:
         await save_db(user_id, user)
-
-        ADMIN_ID = 5006326062
-
-        @router.message(Command("reset_pass"))
-        async def reset_all_pass(message: types.Message, get_user):
-            if message.from_user.id != ADMIN_ID:
-                return  # Игнорируем всех, кроме админа
-
-            # ❗️ Здесь нужна функция, которая достает всех пользователей из БД.
-            # Допустим, у тебя есть `get_all_users()` в database.py
-            users = await get_all_users()
-
-            for user in users:
-                user_id = user["user_id"]
-                # Сбрасываем данные пропуска
-                user["pass"] = {
-                    "level": 1,
-                    "xp": 0,
-                    "pass_type": "Обычный",
-                    "end_date": time.time() + (PASS_DURATION_DAYS * 86400),
-                    "claimed_levels": [],
-                    "daily_bonus_claimed": None,
-                    "quests": {}
-                }
-                await save_db(user_id, user)
-
-            await message.answer("✅ Прогресс боевого пропуска сброшен у всех пользователей.")
