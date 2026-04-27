@@ -15,7 +15,7 @@ from items import GAME_ITEMS
 router = Router()
 PASS_DURATION_DAYS = 14
 QUEST_CHAT_ID = -1003858938513  # ❗ ЗАМЕНИ НА ID ТВОЕГО ЧАТА! https://t.me/official_chat_droch
-PHOTO_URL = "https://i.imgur.com/your_image.jpeg"  # ❗ ВСТАВЬ СЮДА ССЫЛКУ НА КАРТИНКУ ДЛЯ ПРОПУСКА
+PHOTO_URL = "https://i.yapx.ru/dezXF.jpg"  # ❗ ВСТАВЬ СЮДА ССЫЛКУ НА КАРТИНКУ ДЛЯ ПРОПУСКА
 
 # --- СИМВОЛЫ И ВАЛЮТА ---
 PEACH = "🍑"
@@ -38,17 +38,6 @@ PASS_LEVELS = {
     8: {"xp": 225, "rewards": [("item", "🎁", 2), ("item", "🔰", 1)]},
     9: {"xp": 250, "rewards": [("currency", FARMCOIN, 100000), ("item", "💐", 1)]},
     10: {"xp": 300, "choice": [("item", "🍌", 1), ("item", "🍆", 1)]},
-    # ... Добавь уровни с 11 по 20
-    11: {"xp": 350, "rewards": [("currency", FARMCOIN, 150000)]},
-    12: {"xp": 400, "rewards": [("item", "📦", 20)]},
-    13: {"xp": 450, "rewards": [("premium", PREMIUM_COIN, 25)]},
-    14: {"xp": 500, "rewards": [("item", "💫", 1)]},
-    15: {"xp": 550, "rewards": [("item", "🎁", 5)]},
-    16: {"xp": 600, "rewards": [("currency", FARMCOIN, 250000)]},
-    17: {"xp": 650, "rewards": [("premium", PREMIUM_COIN, 50)]},
-    18: {"xp": 700, "rewards": [("item", "🤖", 1)]},
-    19: {"xp": 750, "rewards": [("currency", FARMCOIN, 500000)]},
-    20: {"xp": 1000, "rewards": [("item", "💎", 1)]},
 }
 
 # --- КОНФИГУРАЦИЯ ЕЖЕДНЕВНЫХ ЗАДАНИЙ ---
@@ -149,19 +138,21 @@ async def cmd_pass_menu(message: types.Message, get_user):
     user = ensure_user_pass_data(user)
 
     pass_data = user["pass"]
+    # ИЗМЕНЕННЫЙ ТЕКСТ:
     text = (
-        f"<b>ДРОЧ ПАСС</b>\n\n"
-        f"<b>Твой этап:</b> {pass_data['level']}\n"
-        f"<b>Пропуск:</b> {pass_data['pass_type']}\n"
-        f"<b>Дней до окончания:</b> {get_pass_end_date(user)}"
+        f"<b>ДРОЧ ПАСС | СЕЗОН 1: БАНАНОВЫЙ ПЕРЕПОЛОХ 🍌</b>\n\n"
+        f"— <b>Твой уровень:</b> {pass_data['level']}\n"
+        f"— <b>Статус:</b> {pass_data['pass_type']}\n"
+        f"— <b>До дедлайна:</b> {get_pass_end_date(user)}\n\n"
+        f"Время вкалывать. Каждый уровень — это не просто цифра, это твое превосходство. Забирай награды, пока другие спят."
     )
 
     builder = InlineKeyboardBuilder()
-    builder.button(text="Этапы", callback_data=PassMenu(action="view_levels", level=pass_data['level']))
-    builder.button(text="Задания", callback_data=PassMenu(action="view_quests"))
-    builder.button(text="Бонус", callback_data=PassMenu(action="bonus"))
-    builder.button(text="Купить Ультра пропуск", callback_data=PassMenu(action="buy_ultra"))
-    builder.button(text="Информация", callback_data=PassMenu(action="info"))
+    builder.button(text="Этапы 🧩", callback_data=PassMenu(action="view_levels", level=pass_data['level']))
+    builder.button(text="Задания 📝", callback_data=PassMenu(action="view_quests"))
+    builder.button(text="Бонус 🎈", callback_data=PassMenu(action="bonus"))
+    builder.button(text="Купить Ультра пропуск 💠", callback_data=PassMenu(action="buy_ultra"))
+    builder.button(text="Информация ⁉️", callback_data=PassMenu(action="info"))
     builder.adjust(1, 2, 1, 1)
 
     await message.answer_photo(photo=PHOTO_URL, caption=text, reply_markup=builder.as_markup())
