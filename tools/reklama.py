@@ -17,8 +17,8 @@ async def cmd_post(message: types.Message, bot: Bot, get_all_users):
         return await message.answer("❌ У тебя нет прав администратора.")
 
     # --- НАСТРОЙКИ РАССЫЛКИ ---
-    PHOTO_URL = "https://i.yapx.ru/dLWDX.jpg"
-    link_text = "Если вас нет в наших ресурсах, то скорее нажминайте кнопку и вступайте.\n\nТАКЖЕ переходите скорее в наш чат, потому что там будет разыгрываться ФармКоины за актив! 👇"
+    PHOTO_URL = "https://i.yapx.ru/dezXF.jpg"
+    link_text = "ВНИМАНИЕ! Начался маштабный ДРОЧ ПАСС | СЕЗОН 1 БАНАНОВЫЙ ПЕРЕПЛОХ\n\nКороче долго объяснять читай новость в канале и запрыгивай в чат 👇"
 
     # Создаем кнопки напрямую через InlineKeyboardMarkup (так надежнее)
     kb = InlineKeyboardMarkup(inline_keyboard=[
