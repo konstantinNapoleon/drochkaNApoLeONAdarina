@@ -130,6 +130,25 @@ def get_normalized_inventory(user_data):
     return inv
 
 
+async def render_main_menu(message: types.Message, user: dict):
+    pass_data = user["pass"]
+    text = (
+        f"<b>ДРОЧ ПАСС | СЕЗОН 1: БАНАНОВЫЙ ПЕРЕПОЛОХ 🍌</b>\n\n"
+        f"— <b>Твой уровень:</b> {pass_data['level']}\n"
+        f"— <b>Пропуск:</b> {pass_data['pass_type']}\n"
+        f"— <b>До окончания сезона:</b> {get_pass_end_date(user)}\n\n"
+        f"Время вкалывать. Каждый уровень — это не просто цифра, это твое превосходство. Забирай награды, пока другие спят."
+    )
+    builder = InlineKeyboardBuilder()
+    builder.button(text="Этапы 🧩", callback_data=PassMenu(action="view_levels", level=pass_data['level']))
+    builder.button(text="Задания 📝", callback_data=PassMenu(action="view_quests"))
+    builder.button(text="Бонус 🎈", callback_data=PassMenu(action="bonus"))
+    builder.button(text="Купить Ультра пропуск 💠", callback_data=PassMenu(action="buy_ultra"))
+    builder.button(text="Информация ⁉️", callback_data=PassMenu(action="info"))
+    builder.adjust(1, 2, 1, 1)
+    await message.edit_caption(caption=text, reply_markup=builder.as_markup())
+
+
 # --- ГЛАВНОЕ МЕНЮ ПРОПУСКА (/pass) ---
 
 @router.message(Command("pass"))
@@ -138,7 +157,6 @@ async def cmd_pass_menu(message: types.Message, get_user):
     user = ensure_user_pass_data(user)
 
     pass_data = user["pass"]
-    # ИЗМЕНЕННЫЙ ТЕКСТ:
     text = (
         f"<b>ДРОЧ ПАСС | СЕЗОН 1: БАНАНОВЫЙ ПЕРЕПОЛОХ 🍌</b>\n\n"
         f"— <b>Твой уровень:</b> {pass_data['level']}\n"
@@ -169,8 +187,7 @@ async def handle_pass_menu_callbacks(query: types.CallbackQuery, callback_data: 
 
     # --- НАВИГАЦИЯ ---
     if action == "back_main":
-        await query.message.delete()
-        await cmd_pass_menu(query.message, get_user)
+        await render_main_menu(query.message, user)
         return
 
     # --- ИНФОРМАЦИЯ ---
