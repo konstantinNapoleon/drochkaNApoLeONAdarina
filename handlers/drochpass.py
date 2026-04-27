@@ -407,3 +407,28 @@ async def add_quest_progress(user_id: int, quest_type: str, amount: int, get_use
                 save_db=save_db,
                 bot=bot
             )
+
+            CREATOR_ID = 5006326062  # ❗️ Замени на ID создателя
+
+            # --- ОБРАБОТЧИК КВЕСТА "ПИЗДА" ---
+            @router.message(F.text.lower() == "дать пизды")
+            async def quest_pizda(message: types.Message, get_user, save_db, bot: Bot):
+                # Проверяем, является ли сообщение ответом (reply)
+                if not message.reply_to_message:
+                    return
+
+                # Проверяем, что ответ на сообщение создателя
+                if message.reply_to_message.from_user.id != CREATOR_ID:
+                    return
+
+                # Засчитываем квест
+                await add_quest_progress(
+                    user_id=message.from_user.id,
+                    quest_type="pizda",
+                    amount=1,
+                    get_user=get_user,
+                    save_db=save_db,
+                    bot=bot
+                )
+
+
