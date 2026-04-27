@@ -701,7 +701,7 @@ GAME_ITEMS = {
     },
     "🎁": {
         "name": "Супер-кейс",
-        "description": "С супер-подарком",
+        "description": "С подарком",
         "price": 0,
         "emoji": "🎁"
     },
