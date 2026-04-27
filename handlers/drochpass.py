@@ -122,6 +122,21 @@ def ensure_user_pass_data(user_data: dict):
     return user_data
 
 
+def get_normalized_inventory(user_data):
+    """Преобразует инвентарь в словарь, если он был списком."""
+    inv = user_data.get("inventory", {})
+    if isinstance(inv, list):
+        new_inv = {}
+        for item in inv:
+            new_inv[item] = new_inv.get(item, 0) + 1
+        user_data["inventory"] = new_inv
+        return new_inv
+    if not isinstance(inv, dict):
+        user_data["inventory"] = {}
+        return {}
+    return inv
+
+
 # --- ГЛАВНОЕ МЕНЮ ПРОПУСКА (/pass) ---
 
 @router.message(Command("pass"))
@@ -304,6 +319,7 @@ async def claim_pass_reward(query: types.CallbackQuery, callback_data: PassMenu,
     user = await get_user(query.from_user.id, query.from_user.username)
     # Перепроверяем данные на всякий случай
     user = ensure_user_pass_data(user)
+    inv = get_normalized_inventory(user)
     pass_data = user["pass"]
     level_to_claim = callback_data.level
 
@@ -313,15 +329,11 @@ async def claim_pass_reward(query: types.CallbackQuery, callback_data: PassMenu,
         return await query.answer("Награда уже была получена.", show_alert=True)
 
     level_data = PASS_LEVELS[level_to_claim]
-    inv = user.get("inventory", {})
-    if not isinstance(inv, dict): inv = {}  # На всякий случай
 
     for r_type, r_id, r_count in level_data["rewards"]:
-        # Добавляем предмет с тем же ключом (r_id), который используется в inventar.py
         inv[r_id] = inv.get(r_id, 0) + r_count
 
     pass_data["claimed_levels"].append(level_to_claim)
-    user["inventory"] = inv
     await save_db(query.from_user.id, user)
 
     await query.answer("✅ Награда успешно получена!", show_alert=True)
@@ -334,6 +346,7 @@ async def claim_pass_reward(query: types.CallbackQuery, callback_data: PassMenu,
 async def claim_pass_choice_reward(query: types.CallbackQuery, callback_data: LevelChoice, get_user, save_db):
     user = await get_user(query.from_user.id, query.from_user.username)
     user = ensure_user_pass_data(user)
+    inv = get_normalized_inventory(user)
     pass_data = user["pass"]
     level_to_claim = callback_data.level
 
@@ -342,14 +355,10 @@ async def claim_pass_choice_reward(query: types.CallbackQuery, callback_data: Le
     if level_to_claim in pass_data["claimed_levels"]:
         return await query.answer("Награда уже была получена.", show_alert=True)
 
-    inv = user.get("inventory", {})
-    if not isinstance(inv, dict): inv = {}
-
     # Добавляем выбранный предмет
     inv[callback_data.item_id] = inv.get(callback_data.item_id, 0) + callback_data.item_count
 
     pass_data["claimed_levels"].append(level_to_claim)
-    user["inventory"] = inv
     await save_db(query.from_user.id, user)
 
     await query.answer(f"✅ Ты выбрал и получил {callback_data.item_id}!", show_alert=True)

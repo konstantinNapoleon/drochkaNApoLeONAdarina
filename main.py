@@ -91,7 +91,7 @@ async def get_user(user_id, username=None):
         else:
             user_data = {
                 "balance": 0,
-                "inventory": [],
+                "inventory": {},
                 "masturbations_count": 0,
                 "username": username
             }
