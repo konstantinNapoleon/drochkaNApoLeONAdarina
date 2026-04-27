@@ -11,340 +11,121 @@ from aiogram.exceptions import TelegramBadRequest
 
 from items import GAME_ITEMS
 
-# --- ОСНОВНЫЕ НАСТРОЙКИ ---
 router = Router()
-PASS_DURATION_DAYS = 14
-QUEST_CHAT_ID = -100123456789  # ❗ ЗАМЕНИ НА ID ТВОЕГО ЧАТА! https://t.me/official_chat_droch
-PHOTO_URL = "https://i.yapx.ru/dezXF.jpg"  # ❗ ВСТАВЬ СЮДА ССЫЛКУ НА КАРТИНКУ ДЛЯ ПРОПУСКА
-
-# --- СИМВОЛЫ И ВАЛЮТА ---
-PEACH = "🍑"
-FARMCOIN = "💰"
-PREMIUM_COIN = "🪙"
+PHOTO_URL = "https://i.yapx.ru/dezXF.jpg"
 
 
-# --- ФУНКЦИЯ-СТАНДАРТ (ЗАЩИТА ИНВЕНТАРЯ) ---
+# --- ИНВЕНТАРЬ ---
 def ensure_inv_dict(user) -> dict:
-    """Гарантирует, что инвентарь — это словарь (защита от удаления данных)"""
     inv = user.get("inventory")
     if not isinstance(inv, dict):
-        if isinstance(inv, list):
-            new_inv = {}
-            for item in inv:
-                new_inv[item] = new_inv.get(item, 0) + 1
-            user["inventory"] = new_inv
-        else:
-            user["inventory"] = {}
+        user["inventory"] = {}
     return user["inventory"]
 
 
-# --- КОНФИГУРАЦИЯ УРОВНЕЙ ПРОПУСКА ---
+# --- КОНФИГ ---
 PASS_LEVELS = {
-    1: {"xp": 50, "rewards": [("currency", FARMCOIN, 20000)]},
+    1: {"xp": 50, "rewards": [("currency", "💰", 20000)]},
     2: {"xp": 75, "rewards": [("item", "🚚", 1)]},
     3: {"xp": 100, "rewards": [("item", "🍃", 2026)]},
-    4: {"xp": 125, "rewards": [("currency", FARMCOIN, 32000)]},
-    5: {"xp": 150, "rewards": [("currency", FARMCOIN, 10000), ("item", "📓", 1), ("item", "🎁", 1)]},
-    6: {"xp": 175, "rewards": [("currency", FARMCOIN, 50000), ("item", "🔑", 1)]},
-    7: {"xp": 200, "rewards": [("premium", PREMIUM_COIN, 10)]},
+    4: {"xp": 125, "rewards": [("currency", "💰", 32000)]},
+    5: {"xp": 150, "rewards": [("currency", "💰", 10000), ("item", "📓", 1), ("item", "🎁", 1)]},
+    6: {"xp": 175, "rewards": [("currency", "💰", 50000), ("item", "🔑", 1)]},
+    7: {"xp": 200, "rewards": [("item", "💎", 10)]},
     8: {"xp": 225, "rewards": [("item", "🎁", 2), ("item", "🔰", 1)]},
-    9: {"xp": 250, "rewards": [("currency", FARMCOIN, 100000), ("item", "💐", 1)]},
+    9: {"xp": 250, "rewards": [("currency", "💰", 100000), ("item", "💐", 1)]},
     10: {"xp": 300, "choice": [("item", "🍌", 1), ("item", "🍆", 1)]},
 }
 
-# --- КОНФИГУРАЦИЯ ЕЖЕДНЕВНЫХ ЗАДАНИЙ ---
-DAILY_QUESTS = {
-    "msg_50": {"id": "msg_50", "text": f"Написать 50 сообщений в чат", "target": 50, "reward": 200, "type": "messages"},
-    "droch_rand": {"id": "droch_rand", "text": "Подрочить {} раз", "target": random.choice([100, 250, 400]),
-                   "reward": 60, "type": "droch"},
-    "trade_1": {"id": "trade_1", "text": "Произвести 1 успешный трейд", "target": 1, "reward": 40, "type": "trade"},
-    "give_1": {"id": "give_1", "text": "Передать 1 предмет другому игроку", "target": 1, "reward": 20, "type": "give"},
-    "pizda_1": {"id": "pizda_1", "text": "Получить пизды от создателя", "target": 1, "reward": 150, "type": "pizda"},
-    "spray_30": {"id": "spray_30", "text": "Использовать 30 спреев", "target": 30, "reward": 30, "type": "spray"},
-}
+DAILY_QUESTS_DB = [
+    {"text": "Написать 50 сообщений в чат", "reward": 200},
+    {"text": "Подрочить {} раз", "reward": 60, "dynamic": True},
+    {"text": "Произвести 1 успешный трейд", "reward": 40},
+    {"text": "Передать 1 предмет (/give)", "reward": 20},
+    {"text": "Получить пизды от создателя", "reward": 150},
+    {"text": "Использовать 30 спреев", "reward": 30}
+]
 
-
-# --- CALLBACK ДАННЫЕ ДЛЯ КНОПОК ---
 
 class PassMenu(CallbackData, prefix="pass"):
-    action: str  # "view_levels", "view_quests", "bonus", "buy_ultra", "info", "back_main"
+    action: str
     level: int = 1
 
 
-class LevelChoice(CallbackData, prefix="pass_choice"):
-    level: int
-    item_id: str
-    item_count: int
-
-
-# --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
-
 def get_pass_end_date(user_data):
-    end_ts = user_data.get("pass", {}).get("end_date")
-    if not end_ts:
-        return "Никогда"
-    days_left = (end_ts - time.time()) / 86400
-    if days_left <= 0:
-        return "Завершён"
-    return f"{int(days_left)} дней"
-
-
-def get_today_str():
-    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+    return "14 дней"  # Упрощенно
 
 
 def ensure_user_pass_data(user_data: dict):
-    """Инициализирует/обновляет данные пропуска для пользователя."""
     if "pass" not in user_data:
-        user_data["pass"] = {
-            "level": 1,
-            "xp": 0,
-            "pass_type": "Обычный",
-            "end_date": time.time() + (PASS_DURATION_DAYS * 86400),
-            "claimed_levels": [],
-            "daily_bonus_claimed": None,
-            "quests": {}
-        }
-
-    today = get_today_str()
-    if user_data["pass"]["quests"].get("date") != today:
-        # Генерируем новые квесты
-        quest_ids = random.sample(list(DAILY_QUESTS.keys()), 2)
-        user_data["pass"]["quests"] = {
-            "date": today,
-            "tasks": {qid: {"progress": 0, "completed": False} for qid in quest_ids}
-        }
+        user_data["pass"] = {"level": 1, "xp": 0, "pass_type": "Обычный", "claimed_levels": [], "bonus_date": None,
+                             "tasks": []}
     return user_data
 
 
-# --- ГЛАВНОЕ МЕНЮ ПРОПУСКА (/pass) ---
+# --- ХЕНДЛЕРЫ ---
 
 @router.message(Command("pass"))
-async def cmd_pass_menu(message: types.Message, get_user):
+async def cmd_pass(message: types.Message, get_user):
     user = await get_user(message.from_user.id, message.from_user.username)
-    user = ensure_user_pass_data(user)
+    p = ensure_user_pass_data(user)["pass"]
 
-    pass_data = user["pass"]
-    text = (
-        f"<b>ДРОЧ ПАСС</b>\n\n"
-        f"<b>Твой этап:</b> {pass_data['level']}\n"
-        f"<b>Пропуск:</b> {pass_data['pass_type']}\n"
-        f"<b>Дней до окончания:</b> {get_pass_end_date(user)}"
-    )
+    text = (f"<b>ДРОЧ ПАСС</b>\n\n<b>Твой этап:</b> {p['level']}\n"
+            f"<b>Пропуск:</b> {p['pass_type']}\n<b>Дней до окончания:</b> {get_pass_end_date(user)}")
 
-    builder = InlineKeyboardBuilder()
-    builder.button(text="Этапы", callback_data=PassMenu(action="view_levels", level=pass_data['level']))
-    builder.button(text="Задания", callback_data=PassMenu(action="view_quests"))
-    builder.button(text="Бонус", callback_data=PassMenu(action="bonus"))
-    builder.button(text="Купить Ультра пропуск", callback_data=PassMenu(action="buy_ultra"))
-    builder.button(text="Информация", callback_data=PassMenu(action="info"))
-    builder.adjust(1, 2, 1, 1)
+    kb = InlineKeyboardBuilder()
+    kb.button(text="Этапы", callback_data=PassMenu(action="view_levels", level=p['level']))
+    kb.button(text="Задания", callback_data=PassMenu(action="view_quests"))
+    kb.button(text="Бонус", callback_data=PassMenu(action="bonus"))
+    kb.button(text="Купить Ультра пропуск", callback_data=PassMenu(action="buy"))
+    kb.button(text="Информация", callback_data=PassMenu(action="info"))
+    kb.adjust(1, 2, 1, 1)
+    await message.answer_photo(photo=PHOTO_URL, caption=text, reply_markup=kb.as_markup())
 
-    await message.answer_photo(photo=PHOTO_URL, caption=text, reply_markup=builder.as_markup())
-
-
-# --- ОБРАБОТЧИК НАЖАТИЙ НА КНОПКИ ---
 
 @router.callback_query(PassMenu.filter())
-async def handle_pass_menu_callbacks(query: types.CallbackQuery, callback_data: PassMenu, get_user, save_db):
-    action = callback_data.action
+async def handle_pass(query: types.CallbackQuery, callback_data: PassMenu, get_user, save_db):
     user = await get_user(query.from_user.id, query.from_user.username)
-    user = ensure_user_pass_data(user)
-    pass_data = user["pass"]
+    p = ensure_user_pass_data(user)["pass"]
 
-    if action == "back_main":
-        text = (
-            f"<b>ДРОЧ ПАСС</b>\n\n"
-            f"<b>Твой этап:</b> {pass_data['level']}\n"
-            f"<b>Пропуск:</b> {pass_data['pass_type']}\n"
-            f"<b>Дней до окончания:</b> {get_pass_end_date(user)}"
-        )
-        builder = InlineKeyboardBuilder()
-        builder.button(text="Этапы", callback_data=PassMenu(action="view_levels", level=pass_data['level']))
-        builder.button(text="Задания", callback_data=PassMenu(action="view_quests"))
-        builder.button(text="Бонус", callback_data=PassMenu(action="bonus"))
-        builder.button(text="Купить Ультра пропуск", callback_data=PassMenu(action="buy_ultra"))
-        builder.button(text="Информация", callback_data=PassMenu(action="info"))
-        builder.adjust(1, 2, 1, 1)
-        with suppress(TelegramBadRequest):
-            await query.message.edit_caption(caption=text, reply_markup=builder.as_markup())
-        return
+    if callback_data.action == "view_levels":
+        lvl = callback_data.level
+        data = PASS_LEVELS.get(lvl)
+        status = "в процессе"
+        if p["level"] > lvl: status = "ожидает сбор"
+        if lvl in p.get("claimed_levels", []): status = "получено"
 
-    # --- ИНФОРМАЦИЯ / БОНУС / ПОКУПКА ---
-    if action == "info":
-        await query.answer(
-            "Дроч Пасс - это сезонный ивент, где ты выполняешь задания, получаешь 🍑 и забираешь награды!",
-            show_alert=True)
-        return
-    if action == "buy_ultra":
-        await query.answer("Покупка Ультра пропуска пока не реализована.", show_alert=True)
-        return
-    if action == "bonus":
-        today = get_today_str()
-        if pass_data.get("daily_bonus_claimed") == today:
-            await query.answer("Ты уже забирал бонус сегодня. Приходи завтра!", show_alert=True)
-        else:
-            pass_data["xp"] += 50
-            pass_data["daily_bonus_claimed"] = today
-            await save_db(query.from_user.id, user)
-            await query.answer(f"✅ Ты получил +50 {PEACH}!", show_alert=True)
-        return
+        text = f"📦 <b>Боевой Пропуск | Уровень {lvl}</b>\n\nНаграда: {data['rewards']}\nСтатус: {status}"
+        kb = InlineKeyboardBuilder()
+        kb.row(
+            types.InlineKeyboardButton(text="⬅️", callback_data=PassMenu(action="view_levels", level=max(1, lvl - 1))),
+            types.InlineKeyboardButton(text="➡️", callback_data=PassMenu(action="view_levels", level=min(10, lvl + 1))))
+        if status == "ожидает сбор":
+            kb.row(types.InlineKeyboardButton(text="Забрать", callback_data=PassMenu(action="claim", level=lvl)))
+        kb.row(types.InlineKeyboardButton(text="Назад", callback_data=PassMenu(action="back")))
+        await query.message.edit_caption(caption=text, reply_markup=kb.as_markup())
 
-    # --- ПРОСМОТР ЗАДАНИЙ ---
-    if action == "view_quests":
-        text = "<b>Текущие ежедневные задания:</b>\n\n"
-        tasks = pass_data["quests"]["tasks"]
-        for i, (quest_id, data) in enumerate(tasks.items()):
-            quest_info = DAILY_QUESTS[quest_id]
-            status = "✅" if data["completed"] else "❌"
-            q_text = quest_info['text'].format(quest_info['target']) if '{}' in quest_info['text'] else quest_info[
-                'text']
-            text += f"<b>[{i + 1}]</b> {q_text} ({data['progress']}/{quest_info['target']}) {status}\n"
-        text += "\nОбновление через ~24 часа."
-        builder = InlineKeyboardBuilder()
-        builder.button(text="‹ Назад", callback_data=PassMenu(action="back_main"))
-        with suppress(TelegramBadRequest):
-            await query.message.edit_caption(caption=text, reply_markup=builder.as_markup())
-        return
-
-    # --- ПРОСМОТР ЭТАПОВ ---
-    if action == "view_levels":
-        level_to_show = callback_data.level
-        level_data = PASS_LEVELS.get(level_to_show)
-        if not level_data:
-            await query.answer("Это был последний уровень!", show_alert=False)
-            return
-
-        while pass_data["level"] in PASS_LEVELS and pass_data["xp"] >= PASS_LEVELS[pass_data["level"]]["xp"]:
-            xp_needed = PASS_LEVELS[pass_data["level"]]["xp"]
-            pass_data["xp"] -= xp_needed
-            pass_data["level"] += 1
-        await save_db(query.from_user.id, user)
-
-        header = f"📦 <b>Боевой Пропуск | Уровень {level_to_show}</b>\n\n<b>Награда:</b>\n"
-        rewards_text = ""
-        if "rewards" in level_data:
-            for r_type, r_id, r_count in level_data["rewards"]:
-                name = GAME_ITEMS.get(r_id, {}).get("name", "Неизвестно")
-                rewards_text += f"{r_id} {name} ({r_count} шт.)\n"
-        if "choice" in level_data:
-            rewards_text += "🎁 *Награда на выбор:*\n"
-            for r_type, r_id, r_count in level_data["choice"]:
-                name = GAME_ITEMS.get(r_id, {}).get("name", "Неизвестно")
-                rewards_text += f" L {r_id} {name} ({r_count} шт.)\n"
-
-        current_level_xp_needed = PASS_LEVELS.get(pass_data['level'], {}).get("xp", 1)
-        progress_text = f"\n<b>Прогресс Ур. {pass_data['level'] - 1}</b> ▱▱▱▱▱▱▱▱▱▱ {pass_data['xp']}/{current_level_xp_needed} {PEACH}"
-
-        builder = InlineKeyboardBuilder()
-        nav_buttons = []
-        if level_to_show > 1:
-            nav_buttons.append(types.InlineKeyboardButton(text="⬅️", callback_data=PassMenu(action="view_levels",
-                                                                                            level=level_to_show - 1).pack()))
-        if level_to_show < len(PASS_LEVELS):
-            nav_buttons.append(types.InlineKeyboardButton(text="➡️", callback_data=PassMenu(action="view_levels",
-                                                                                            level=level_to_show + 1).pack()))
-        builder.row(*nav_buttons)
-
-        if pass_data["level"] > level_to_show:
-            if level_to_show in pass_data["claimed_levels"]:
-                status = "Статус: [✅ получено]"
-            else:
-                status = "Статус: [🔘 ожидает сбор]"
-                if "choice" in level_data:
-                    choice_buttons = [types.InlineKeyboardButton(text=f"Выбрать {r_id}",
-                                                                 callback_data=LevelChoice(level=level_to_show,
-                                                                                           item_id=r_id,
-                                                                                           item_count=r_count).pack())
-                                      for r_type, r_id, r_count in level_data["choice"]]
-                    builder.row(*choice_buttons)
-                else:
-                    builder.button(text="Забрать", callback_data=PassMenu(action="claim", level=level_to_show))
-        elif pass_data["level"] == level_to_show:
-            status = f"Статус: [в процессе...]"
-        else:
-            status = f"Статус: [не достигнуто]"
-        builder.button(text="‹ Назад в меню", callback_data=PassMenu(action="back_main"))
-        final_text = f"{header}{rewards_text}—————————\n{progress_text}\n\n{status}"
-        with suppress(TelegramBadRequest):
-            await query.message.edit_caption(caption=final_text, reply_markup=builder.as_markup())
-
-
-# --- ОБРАБОТЧИК КНОПКИ "ЗАБРАТЬ" ---
-@router.callback_query(PassMenu.filter())
-async def handle_pass_menu_callbacks(query: types.CallbackQuery, callback_data: PassMenu, get_user, save_db):
-    action = callback_data.action
-    user = await get_user(query.from_user.id, query.from_user.username)
-    user = ensure_user_pass_data(user)
-    pass_data = user["pass"]
-
-    # --- ЛОГИКА ДЛЯ "CLAIM" (ВСТРОИЛИ В ОБЩИЙ ХЕНДЛЕР) ---
-    if action == "claim":
-        level_to_claim = callback_data.level
-        if level_to_claim >= pass_data["level"]:
-            return await query.answer("Ты еще не достиг этого уровня!", show_alert=True)
-        if level_to_claim in pass_data.get("claimed_levels", []):
-            return await query.answer("Награда уже была получена.", show_alert=True)
-
-        level_data = PASS_LEVELS[level_to_claim]
+    if callback_data.action == "claim":
+        lvl = callback_data.level
         inv = ensure_inv_dict(user)
-        for r_type, r_id, r_count in level_data.get("rewards", []):
-            inv[r_id] = inv.get(r_id, 0) + r_count
-
-        pass_data.setdefault("claimed_levels", []).append(level_to_claim)
+        for _, item_id, count in PASS_LEVELS[lvl].get("rewards", []):
+            inv[item_id] = inv.get(item_id, 0) + count
+        p.setdefault("claimed_levels", []).append(lvl)
         await save_db(query.from_user.id, user)
-        await query.answer("✅ Награда успешно получена!", show_alert=True)
-        # Переходим к обновлению экрана
-action = "view_levels"  # подменяем action, чтобы вызвать обновление
+        await query.answer("✅ Награда получена!", show_alert=True)
+        await handle_pass(query, PassMenu(action="view_levels", level=lvl), get_user, save_db)
 
+    if callback_data.action == "bonus":
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        if p.get("bonus_date") == today: return await query.answer("Уже получал!", show_alert=True)
+        p["bonus_date"] = today
+        p["xp"] += 50
+        await save_db(query.from_user.id, user)
+        await query.answer("🎁 +50 персиков!", show_alert=True)
 
-# --- ОБРАБОТЧИК КНОПКИ ВЫБОРА НАГРАДЫ ---
-@router.callback_query(LevelChoice.filter())
-async def claim_pass_choice_reward(query: types.CallbackQuery, callback_data: LevelChoice, get_user, save_db):
-    user = await get_user(query.from_user.id, query.from_user.username)
-    user = ensure_user_pass_data(user)
-    pass_data = user["pass"]
-    level_to_claim = callback_data.level
-    if level_to_claim >= pass_data["level"]:
-        return await query.answer("Ты еще не достиг этого уровня!", show_alert=True)
-    if level_to_claim in pass_data["claimed_levels"]:
-        return await query.answer("Награда уже была получена.", show_alert=True)
+    if callback_data.action == "back":
+        text = f"<b>ДРОЧ ПАСС</b>\n\nЭтап: {p['level']}"
+        kb = InlineKeyboardBuilder()
+        kb.button(text="Этапы", callback_data=PassMenu(action="view_levels", level=p['level']))
+        await query.message.edit_caption(caption=text, reply_markup=kb.as_markup())
 
-    # ИСПОЛЬЗУЕМ СТАНДАРТ:
-    inv = ensure_inv_dict(user)
-
-    inv[callback_data.item_id] = inv.get(callback_data.item_id, 0) + callback_data.item_count
-    pass_data["claimed_levels"].append(level_to_claim)
-
-    await save_db(query.from_user.id, user)
-    await query.answer(f"✅ Ты выбрал и получил {callback_data.item_id}!", show_alert=True)
-    await handle_pass_menu_callbacks(query, PassMenu(action="view_levels", level=level_to_claim), get_user, save_db)
-
-
-# --- ВНЕШНЯЯ ФУНКЦИЯ ДЛЯ ДОБАВЛЕНИЯ ПРОГРЕССА В КВЕСТЫ ---
-async def add_quest_progress(user_id: int, quest_type: str, amount: int, get_user, save_db, bot: Bot):
-    user = await get_user(user_id, None)
-    user = ensure_user_pass_data(user)
-    tasks = user["pass"]["quests"].get("tasks", {})
-    updated = False
-    for quest_id, data in tasks.items():
-        if data["completed"]: continue
-        quest_info = DAILY_QUESTS[quest_id]
-        if quest_info["type"] == quest_type:
-            data["progress"] = min(data["progress"] + amount, quest_info["target"])
-            if data["progress"] >= quest_info["target"]:
-                data["completed"] = True
-                user["pass"]["xp"] += quest_info["reward"]
-                # Уведомление пользователю
-                await bot.send_message(user_id,
-                                       f"✅ Задание выполнено: *{quest_info['text'].format(quest_info['target'])}*\nТы получил +{quest_info['reward']} {PEACH}!",
-                                       parse_mode="Markdown")
-            updated = True
-    if updated:
-        await save_db(user_id, user)
-
-
-# ВЫНЕСЕННЫЙ ХЕНДЛЕР (исправлено)
-@router.message(F.chat.id == QUEST_CHAT_ID)
-async def track_chat_messages(message: types.Message, get_user, save_db, bot: Bot):
-    await add_quest_progress(message.from_user.id, "messages", 1, get_user, save_db, bot)
