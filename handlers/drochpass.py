@@ -317,10 +317,8 @@ async def claim_pass_reward(query: types.CallbackQuery, callback_data: PassMenu,
     if not isinstance(inv, dict): inv = {}  # На всякий случай
 
     for r_type, r_id, r_count in level_data["rewards"]:
-        if r_type == "item":
-            inv[r_id] = inv.get(r_id, 0) + r_count
-        else:  # currency, premium
-            inv[r_id] = inv.get(r_id, 0) + r_count
+        # Добавляем предмет с тем же ключом (r_id), который используется в inventar.py
+        inv[r_id] = inv.get(r_id, 0) + r_count
 
     pass_data["claimed_levels"].append(level_to_claim)
     user["inventory"] = inv
