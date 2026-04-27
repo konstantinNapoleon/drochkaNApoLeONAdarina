@@ -170,6 +170,7 @@ async def handle_pass_menu_callbacks(query: types.CallbackQuery, callback_data: 
     action = callback_data.action
     user = await get_user(query.from_user.id, query.from_user.username)
     user = ensure_user_pass_data(user)
+    inv = get_normalized_inventory(user)
     pass_data = user["pass"]
 
     # --- НАВИГАЦИЯ ---
@@ -237,13 +238,24 @@ async def handle_pass_menu_callbacks(query: types.CallbackQuery, callback_data: 
             return
 
         # --- Проверка и повышение уровня ---
-        # Эта логика должна быть здесь, чтобы обновлять статус "на лету"
         while pass_data["level"] in PASS_LEVELS and pass_data["xp"] >= PASS_LEVELS[pass_data["level"]]["xp"]:
             xp_needed = PASS_LEVELS[pass_data["level"]]["xp"]
             pass_data["xp"] -= xp_needed
             pass_data["level"] += 1
+
+        # --- АВТО-ВЫДАЧА НАГРАД ---
+        if level_to_show < pass_data["level"] and level_to_show not in pass_data[
+            "claimed_levels"] and "rewards" in level_data:
+            msg = "🎁 <b>Награды выданы:</b>\n"
+            for r_type, r_id, r_count in level_data["rewards"]:
+                inv[r_id] = inv.get(r_id, 0) + r_count
+                name = GAME_ITEMS.get(r_id, {}).get("name", "Предмет")
+                msg += f"{r_id} {name} (x{r_count})\n"
+            pass_data["claimed_levels"].append(level_to_show)
+            await save_db(query.from_user.id, user)
+            await query.message.answer(msg)
+        # ---------------------------
         await save_db(query.from_user.id, user)
-        # ---
 
         header = f"📦 <b>Боевой Пропуск | Уровень {level_to_show}</b>\n\n<b>Награда:</b>\n"
         rewards_text = ""
@@ -263,12 +275,9 @@ async def handle_pass_menu_callbacks(query: types.CallbackQuery, callback_data: 
 
         # --- Прогресс бар ---
         current_level_xp_needed = PASS_LEVELS.get(pass_data['level'], {}).get("xp", 1)
-        prev_level_xp_needed = PASS_LEVELS.get(pass_data['level'] - 1, {}).get("xp", 0)
-
         progress_text = f"\n<b>Прогресс Ур. {pass_data['level'] - 1}</b> ▱▱▱▱▱▱▱▱▱▱ {pass_data['xp']}/{current_level_xp_needed} {PEACH}"
 
         # --- Статус и кнопки ---
-        status = ""
         builder = InlineKeyboardBuilder()
 
         # Кнопки навигации
@@ -281,34 +290,21 @@ async def handle_pass_menu_callbacks(query: types.CallbackQuery, callback_data: 
                                                                                             level=level_to_show + 1).pack()))
         builder.row(*nav_buttons)
 
-        # Кнопка "Забрать"
-        if pass_data["level"] > level_to_show:
-            if level_to_show in pass_data["claimed_levels"]:
-                status = "Статус: [✅ получено]"
-            else:
-                status = "Статус: [🔘 ожидает сбор]"
-                if "choice" in level_data:
-                    # Если есть выбор, добавляем кнопки выбора
-                    choice_buttons = []
-                    for r_type, r_id, r_count in level_data["choice"]:
-                        choice_buttons.append(types.InlineKeyboardButton(text=f"Выбрать {r_id}",
-                                                                         callback_data=LevelChoice(level=level_to_show,
-                                                                                                   item_id=r_id,
-                                                                                                   item_count=r_count).pack()))
-                    builder.row(*choice_buttons)
-                else:
-                    # Обычная кнопка "Забрать"
-                    builder.button(text="Забрать", callback_data=PassMenu(action="claim", level=level_to_show))
-        elif pass_data["level"] == level_to_show:
-            status = f"Статус: [в процессе...]"
-        else:
-            status = f"Статус: [не достигнуто]"
+        # Выбор (для 10 уровня)
+        if level_to_show < pass_data["level"] and level_to_show not in pass_data[
+            "claimed_levels"] and "choice" in level_data:
+            choice_buttons = []
+            for r_type, r_id, r_count in level_data["choice"]:
+                choice_buttons.append(types.InlineKeyboardButton(text=f"Выбрать {r_id}",
+                                                                 callback_data=LevelChoice(level=level_to_show,
+                                                                                           item_id=r_id,
+                                                                                           item_count=r_count).pack()))
+            builder.row(*choice_buttons)
 
         builder.button(text="‹ Назад в меню", callback_data=PassMenu(action="back_main"))
 
-        final_text = f"{header}{rewards_text}—————————\n{progress_text}\n\n{status}"
+        final_text = f"{header}{rewards_text}—————————\n{progress_text}"
 
-        # Используем suppress для игнорирования ошибки, если сообщение не изменилось
         with suppress(TelegramBadRequest):
             await query.message.edit_caption(caption=final_text, reply_markup=builder.as_markup())
 
@@ -317,7 +313,6 @@ async def handle_pass_menu_callbacks(query: types.CallbackQuery, callback_data: 
 @router.callback_query(PassMenu.filter(F.action == "claim"))
 async def claim_pass_reward(query: types.CallbackQuery, callback_data: PassMenu, get_user, save_db):
     user = await get_user(query.from_user.id, query.from_user.username)
-    # Перепроверяем данные на всякий случай
     user = ensure_user_pass_data(user)
     inv = get_normalized_inventory(user)
     pass_data = user["pass"]
@@ -337,7 +332,6 @@ async def claim_pass_reward(query: types.CallbackQuery, callback_data: PassMenu,
     await save_db(query.from_user.id, user)
 
     await query.answer("✅ Награда успешно получена!", show_alert=True)
-    # Обновляем сообщение, чтобы убрать кнопку
     await handle_pass_menu_callbacks(query, PassMenu(action="view_levels", level=level_to_claim), get_user, save_db)
 
 
@@ -362,7 +356,6 @@ async def claim_pass_choice_reward(query: types.CallbackQuery, callback_data: Le
     await save_db(query.from_user.id, user)
 
     await query.answer(f"✅ Ты выбрал и получил {callback_data.item_id}!", show_alert=True)
-    # Обновляем сообщение, чтобы убрать кнопки выбора
     await handle_pass_menu_callbacks(query, PassMenu(action="view_levels", level=level_to_claim), get_user, save_db)
 
 
