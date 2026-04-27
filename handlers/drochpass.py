@@ -22,6 +22,22 @@ PEACH = "🍑"
 FARMCOIN = "💰"
 PREMIUM_COIN = "🪙"
 
+
+# --- ФУНКЦИЯ-СТАНДАРТ (ЗАЩИТА ИНВЕНТАРЯ) ---
+def ensure_inv_dict(user) -> dict:
+    """Гарантирует, что инвентарь — это словарь (защита от удаления данных)"""
+    inv = user.get("inventory")
+    if not isinstance(inv, dict):
+        if isinstance(inv, list):
+            new_inv = {}
+            for item in inv:
+                new_inv[item] = new_inv.get(item, 0) + 1
+            user["inventory"] = new_inv
+        else:
+            user["inventory"] = {}
+    return user["inventory"]
+
+
 # --- КОНФИГУРАЦИЯ УРОВНЕЙ ПРОПУСКА ---
 PASS_LEVELS = {
     1: {"xp": 50, "rewards": [("currency", FARMCOIN, 20000)]},
@@ -156,7 +172,9 @@ async def handle_pass_menu_callbacks(query: types.CallbackQuery, callback_data: 
 
     # --- ИНФОРМАЦИЯ / БОНУС / ПОКУПКА ---
     if action == "info":
-        await query.answer("Дроч Пасс - это сезонный ивент, где ты выполняешь задания, получаешь 🍑 и забираешь награды!", show_alert=True)
+        await query.answer(
+            "Дроч Пасс - это сезонный ивент, где ты выполняешь задания, получаешь 🍑 и забираешь награды!",
+            show_alert=True)
         return
     if action == "buy_ultra":
         await query.answer("Покупка Ультра пропуска пока не реализована.", show_alert=True)
@@ -179,7 +197,8 @@ async def handle_pass_menu_callbacks(query: types.CallbackQuery, callback_data: 
         for i, (quest_id, data) in enumerate(tasks.items()):
             quest_info = DAILY_QUESTS[quest_id]
             status = "✅" if data["completed"] else "❌"
-            q_text = quest_info['text'].format(quest_info['target']) if '{}' in quest_info['text'] else quest_info['text']
+            q_text = quest_info['text'].format(quest_info['target']) if '{}' in quest_info['text'] else quest_info[
+                'text']
             text += f"<b>[{i + 1}]</b> {q_text} ({data['progress']}/{quest_info['target']}) {status}\n"
         text += "\nОбновление через ~24 часа."
         builder = InlineKeyboardBuilder()
@@ -220,9 +239,11 @@ async def handle_pass_menu_callbacks(query: types.CallbackQuery, callback_data: 
         builder = InlineKeyboardBuilder()
         nav_buttons = []
         if level_to_show > 1:
-            nav_buttons.append(types.InlineKeyboardButton(text="⬅️", callback_data=PassMenu(action="view_levels", level=level_to_show - 1).pack()))
+            nav_buttons.append(types.InlineKeyboardButton(text="⬅️", callback_data=PassMenu(action="view_levels",
+                                                                                            level=level_to_show - 1).pack()))
         if level_to_show < len(PASS_LEVELS):
-            nav_buttons.append(types.InlineKeyboardButton(text="➡️", callback_data=PassMenu(action="view_levels", level=level_to_show + 1).pack()))
+            nav_buttons.append(types.InlineKeyboardButton(text="➡️", callback_data=PassMenu(action="view_levels",
+                                                                                            level=level_to_show + 1).pack()))
         builder.row(*nav_buttons)
 
         if pass_data["level"] > level_to_show:
@@ -231,7 +252,11 @@ async def handle_pass_menu_callbacks(query: types.CallbackQuery, callback_data: 
             else:
                 status = "Статус: [🔘 ожидает сбор]"
                 if "choice" in level_data:
-                    choice_buttons = [types.InlineKeyboardButton(text=f"Выбрать {r_id}", callback_data=LevelChoice(level=level_to_show, item_id=r_id, item_count=r_count).pack()) for r_type, r_id, r_count in level_data["choice"]]
+                    choice_buttons = [types.InlineKeyboardButton(text=f"Выбрать {r_id}",
+                                                                 callback_data=LevelChoice(level=level_to_show,
+                                                                                           item_id=r_id,
+                                                                                           item_count=r_count).pack())
+                                      for r_type, r_id, r_count in level_data["choice"]]
                     builder.row(*choice_buttons)
                 else:
                     builder.button(text="Забрать", callback_data=PassMenu(action="claim", level=level_to_show))
@@ -257,12 +282,15 @@ async def claim_pass_reward(query: types.CallbackQuery, callback_data: PassMenu,
     if level_to_claim in pass_data["claimed_levels"]:
         return await query.answer("Награда уже была получена.", show_alert=True)
     level_data = PASS_LEVELS[level_to_claim]
-    inv = user.get("inventory", {})
-    if not isinstance(inv, dict): inv = {}
+
+    # ИСПОЛЬЗУЕМ СТАНДАРТ:
+    inv = ensure_inv_dict(user)
+
     for r_type, r_id, r_count in level_data["rewards"]:
         inv[r_id] = inv.get(r_id, 0) + r_count
     pass_data["claimed_levels"].append(level_to_claim)
-    user["inventory"] = inv
+
+    # Сохраняем (user уже содержит обновленный inv через reference)
     await save_db(query.from_user.id, user)
     await query.answer("✅ Награда успешно получена!", show_alert=True)
     await handle_pass_menu_callbacks(query, PassMenu(action="view_levels", level=level_to_claim), get_user, save_db)
@@ -279,38 +307,42 @@ async def claim_pass_choice_reward(query: types.CallbackQuery, callback_data: Le
         return await query.answer("Ты еще не достиг этого уровня!", show_alert=True)
     if level_to_claim in pass_data["claimed_levels"]:
         return await query.answer("Награда уже была получена.", show_alert=True)
-    inv = user.get("inventory", {})
-    if not isinstance(inv, dict): inv = {}
+
+    # ИСПОЛЬЗУЕМ СТАНДАРТ:
+    inv = ensure_inv_dict(user)
+
     inv[callback_data.item_id] = inv.get(callback_data.item_id, 0) + callback_data.item_count
     pass_data["claimed_levels"].append(level_to_claim)
-    user["inventory"] = inv
+
     await save_db(query.from_user.id, user)
     await query.answer(f"✅ Ты выбрал и получил {callback_data.item_id}!", show_alert=True)
     await handle_pass_menu_callbacks(query, PassMenu(action="view_levels", level=level_to_claim), get_user, save_db)
 
 
 # --- ВНЕШНЯЯ ФУНКЦИЯ ДЛЯ ДОБАВЛЕНИЯ ПРОГРЕССА В КВЕСТЫ ---
-# --- ВНЕШНЯЯ ФУНКЦИЯ ДЛЯ ДОБАВЛЕНИЯ ПРОГРЕССА В КВЕСТЫ ---
 async def add_quest_progress(user_id: int, quest_type: str, amount: int, get_user, save_db, bot: Bot):
-  user = await get_user(user_id, None)
-  user = ensure_user_pass_data(user)
-  tasks = user["pass"]["quests"].get("tasks", {})
-  updated = False
-  for quest_id, data in tasks.items():
-    if data["completed"]: continue
-    quest_info = DAILY_QUESTS[quest_id]
-    if quest_info["type"] == quest_type:
-      data["progress"] = min(data["progress"] + amount, quest_info["target"])
-      if data["progress"] >= quest_info["target"]:
-        data["completed"] = True
-        user["pass"]["xp"] += quest_info["reward"]
-        # Уведомление пользователю
-        await bot.send_message(user_id, f"✅ Задание выполнено: *{quest_info['text'].format(quest_info['target'])}*\nТы получил +{quest_info['reward']} {PEACH}!", parse_mode="Markdown")
-      updated = True
-  if updated:
-    await save_db(user_id, user)
+    user = await get_user(user_id, None)
+    user = ensure_user_pass_data(user)
+    tasks = user["pass"]["quests"].get("tasks", {})
+    updated = False
+    for quest_id, data in tasks.items():
+        if data["completed"]: continue
+        quest_info = DAILY_QUESTS[quest_id]
+        if quest_info["type"] == quest_type:
+            data["progress"] = min(data["progress"] + amount, quest_info["target"])
+            if data["progress"] >= quest_info["target"]:
+                data["completed"] = True
+                user["pass"]["xp"] += quest_info["reward"]
+                # Уведомление пользователю
+                await bot.send_message(user_id,
+                                       f"✅ Задание выполнено: *{quest_info['text'].format(quest_info['target'])}*\nТы получил +{quest_info['reward']} {PEACH}!",
+                                       parse_mode="Markdown")
+            updated = True
+    if updated:
+        await save_db(user_id, user)
+
 
 # ВЫНЕСЕННЫЙ ХЕНДЛЕР (исправлено)
 @router.message(F.chat.id == QUEST_CHAT_ID)
 async def track_chat_messages(message: types.Message, get_user, save_db, bot: Bot):
-  await add_quest_progress(message.from_user.id, "messages", 1, get_user, save_db, bot)
+    await add_quest_progress(message.from_user.id, "messages", 1, get_user, save_db, bot)
