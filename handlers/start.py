@@ -5,18 +5,11 @@ from ivent.pass_tasks import progress_task
 router = Router()
 
 
-# >>> ИЗМЕНЕНИЕ ТУТ <<<
-@router.message(F.text.lower() == "привет", F.chat.type == "private")
+@router.message(Command("start"), F.chat.type == "private")
 async def cmd_start_private(message: types.Message, get_user, save_db):
-    # ЭТА СТРОКА — ГЛАВНЫЙ ТЕСТ
-    print("\n[DEBUG] Зашел в обработчик cmd_start_private (через 'Привет')!")
-
     # Получаем данные пользователя
     user = await get_user(message.from_user.id, message.from_user.username)
     achievements = user.get("achievements", [])
-
-    # Сначала всегда пытаемся засчитать задание
-    await progress_task(message.from_user.id, "start_pm_1", 1)
 
     welcome_text = (
         "👋 Добро пожаловать в @droch_bot\n\n"
@@ -30,10 +23,12 @@ async def cmd_start_private(message: types.Message, get_user, save_db):
     if "registration" not in achievements:
         achievements.append("registration")
         user["achievements"] = achievements
-        await save_db(message.from_user.id, user)
+        await save_db(message.from_user.id, user)  # Сохраняем в базу
 
         # Дописываем сообщение о получении ачивки в конец текста
         welcome_text += "\n\n<i>🏆 Получена ачивка: ♦️ <b>Новая кровь</b></i>"
+
+        await progress_task(message.from_user.id, "start_pm_1", 1)
 
     # Обязательно добавляем parse_mode="HTML", чтобы курсив и жирный шрифт сработали
     await message.answer(
