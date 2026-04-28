@@ -15,6 +15,7 @@ from items import GAME_ITEMS
 router = Router()
 PASS_DURATION_DAYS = 14
 QUEST_CHAT_ID = -1003858938513  # ❗ ЗАМЕНИ НА ID ТВОЕГО ЧАТА! https://t.me/official_chat_droch
+CREATOR_ID = 5006326062
 PHOTO_URL = "https://i.yapx.ru/dezXF.jpg"  # ❗ ВСТАВЬ СЮДА ССЫЛКУ НА КАРТИНКУ ДЛЯ ПРОПУСКА
 
 # --- СИМВОЛЫ И ВАЛЮТА ---
@@ -408,31 +409,6 @@ async def add_quest_progress(user_id: int, quest_type: str, amount: int, get_use
                 bot=bot
             )
 
-            CREATOR_ID = 5006326062  # ❗️ Замени на ID создателя
-
-            # --- УЛУЧШЕННЫЙ ОБРАБОТЧИК КВЕСТА "ПИЗДА" ---
-            @router.message(F.text.casefold() == "дать пизды")
-            async def quest_pizda(message: types.Message, get_user, save_db, bot: Bot):
-                # Проверка на наличие ответа
-                if not message.reply_to_message:
-                    return
-
-                # Проверка, что это ответ именно создателю
-                if message.reply_to_message.from_user.id != CREATOR_ID:
-                    return
-
-                # Засчитываем прогресс
-                await add_quest_progress(
-                    user_id=message.from_user.id,
-                    quest_type="pizda",
-                    amount=1,
-                    get_user=get_user,
-                    save_db=save_db,
-                    bot=bot
-                )
-
-                # Визуальное подтверждение, что сработало
-                await message.reply("Ты получил пизды от создателя! Задание засчитано.")
 
 
 
