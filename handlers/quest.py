@@ -3,9 +3,7 @@ from handlers.drochpass import ensure_user_pass_data, DAILY_QUESTS, QUEST_CHAT_I
 
 router = Router()
 
-CREATOR_ID = 123456789  # замени на свой Telegram ID
-
-
+CREATOR_ID = 5006326062
 async def add_quest_progress(
     user_id: int,
     chat_id: int,
@@ -17,6 +15,9 @@ async def add_quest_progress(
     bot: Bot
 ):
     user = await get_user(user_id, None)
+    if not user:
+        return
+
     user = ensure_user_pass_data(user)
 
     tasks = user["pass"]["quests"].get("tasks", {})
@@ -53,6 +54,7 @@ async def add_quest_progress(
 
 @router.message(F.text & ~F.text.startswith("/"))
 async def process_message_quest(message: types.Message, get_user, save_db, bot: Bot):
+    # если нужно считать только в одном чате — оставь проверку
     if message.chat.id != QUEST_CHAT_ID:
         return
 
@@ -73,24 +75,26 @@ async def process_pizda_quest(message: types.Message, get_user, save_db, bot: Bo
     if message.chat.id != QUEST_CHAT_ID:
         return
 
+    if message.from_user.id != CREATOR_ID:
+        return
+
     if not message.reply_to_message:
         return
 
-    if not message.reply_to_message.from_user:
-        return
-
-    if message.reply_to_message.from_user.id != CREATOR_ID:
+    victim = message.reply_to_message.from_user
+    if not victim:
         return
 
     await add_quest_progress(
-        user_id=message.from_user.id,
+        user_id=victim.id,
         chat_id=message.chat.id,
-        username_text=message.from_user.mention_html(),
+        username_text=victim.mention_html(),
         quest_type="pizda",
         amount=1,
         get_user=get_user,
         save_db=save_db,
         bot=bot
     )
+
 
 
