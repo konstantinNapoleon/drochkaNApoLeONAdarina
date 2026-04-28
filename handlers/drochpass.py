@@ -394,20 +394,7 @@ async def add_quest_progress(user_id: int, quest_type: str, amount: int, get_use
     if updated:
         await save_db(user_id, user)
 
-        # --- ОТСЛЕЖИВАНИЕ СООБЩЕНИЙ ДЛЯ КВЕСТОВ ---
-        @router.message(F.text & ~F.text.startswith("/"))
-        async def process_chat_messages(message: types.Message, get_user, save_db, bot: Bot):
-            if message.chat.id != QUEST_CHAT_ID:
-                return
 
-            await add_quest_progress(
-                user_id=message.from_user.id,
-                quest_type="messages",
-                amount=1,
-                get_user=get_user,
-                save_db=save_db,
-                bot=bot
-            )
 
 
 
