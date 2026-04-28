@@ -6,35 +6,50 @@ async def progress_task(user_id: int, task_id: str, amount: int = 1):
     Добавляет прогресс к ежедневному заданию пользователя.
     Если нужного задания на сегодня нет — просто ничего не делает.
     """
+    print(f"\n[DEBUG] progress_task вызван для user_id={user_id} с task_id='{task_id}'")
     tasks = await get_or_create_today_tasks(user_id)
+    print(f"[DEBUG]  Задания на сегодня из БД: {tasks}")
 
+    target_task = None
     for task in tasks:
-        if task["task_id"] != task_id:
-            continue
+        print(f"[DEBUG]  Проверяю задание: {task}")
+        if task.get("task_id") == task_id:
+            target_task = task
+            print(f"[DEBUG]  Нашел нужное задание: {task}")
+            break
 
-        if task.get("claimed"):
-            return False
+    if not target_task:
+        print(f"[DEBUG]  Задание с task_id='{task_id}' НЕ НАЙДЕНО. Выхожу.")
+        return False
 
-        current = int(task.get("progress", 0))
-        target = int(task.get("target", 1))
+    if target_task.get("claimed"):
+        print(f"[DEBUG]  Задание уже заклеймлено. Выхожу.")
+        return False
 
-        if current >= target:
-            return False
+    current = int(target_task.get("progress", 0))
+    target = int(target_task.get("target", 1))
 
-        new_progress = current + amount
-        if new_progress > target:
-            new_progress = target
+    if current >= target:
+        print(f"[DEBUG]  Прогресс уже 100%. Выхожу.")
+        return False
 
-        is_completed = new_progress >= target
+    new_progress = current + amount
+    if new_progress > target:
+        new_progress = target
 
-        await update_task_progress(
-            task_row_id=task["id"],
-            progress=new_progress,
-            is_completed=is_completed
-        )
-        return True
+    print(f"[DEBUG]  Новый прогресс: {new_progress}/{target}")
+    is_completed = new_progress >= target
 
-    return False
+    if is_completed:
+        print("[DEBUG]  Задание ВЫПОЛНЕНО.")
+
+    await update_task_progress(
+        task_row_id=target_task["id"],
+        progress=new_progress,
+        is_completed=is_completed
+    )
+    print("[DEBUG]  Вызвал update_task_progress. Прогресс должен быть обновлен в БД.")
+    return True
 
 
 async def claim_task_reward(user_id: int, task_row_id: int):
