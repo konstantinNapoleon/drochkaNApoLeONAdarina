@@ -3,8 +3,9 @@ from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.exceptions import TelegramBadRequest
 
+# Импортируем нужные данные
+from .pass_data import MAX_LEVEL, ULTRA_PASS_COST
 from .pass_tasks import claim_task_reward, progress_task
-from .pass_data import MAX_LEVEL
 from .pass_texts import (
     build_main_menu_text,
     build_info_text,
@@ -24,6 +25,7 @@ from .pass_db import (
     get_or_create_today_tasks,
     claim_daily_bonus,
     has_claimed_daily_bonus,
+    set_ultra_pass,  # Добавляем импорт
 )
 
 router = Router()
@@ -32,36 +34,26 @@ PHOTO_URL = "https://i.yapx.ru/dezXF.jpg"
 ALLOWED_CHAT_ID = -1003858938513
 
 
-def get_main_pass_kb():
+def get_main_pass_kb(is_ultra: bool):  # Теперь функция принимает статус Ультра
     builder = InlineKeyboardBuilder()
 
     builder.row(
-        types.InlineKeyboardButton(
-            text="🧩 Этапы",
-            callback_data="pass:stages:1"
-        )
+        types.InlineKeyboardButton(text="🧩 Этапы", callback_data="pass:stages:1")
     )
     builder.row(
-        types.InlineKeyboardButton(
-            text="📝 Задания",
-            callback_data="pass:tasks"
-        ),
-        types.InlineKeyboardButton(
-            text="🎈 Бонус",
-            callback_data="pass:bonus"
-        )
+        types.InlineKeyboardButton(text="📝 Задания", callback_data="pass:tasks"),
+        types.InlineKeyboardButton(text="🎈 Бонус", callback_data="pass:bonus"),
     )
-    builder.row(
-        types.InlineKeyboardButton(
-            text="💠 Купить Ультра пропуск",
-            callback_data="pass:buy_ultra"
+    # Если у пользователя еще нет Ультра пропуска, показываем кнопку покупки
+    if not is_ultra:
+        builder.row(
+            types.InlineKeyboardButton(
+                text=f"💠 Купить Ультра пропуск ({ULTRA_PASS_COST} 🪙)",
+                callback_data="pass:buy_ultra",
+            )
         )
-    )
     builder.row(
-        types.InlineKeyboardButton(
-            text="⁉️ Информация",
-            callback_data="pass:info"
-        )
+        types.InlineKeyboardButton(text="⁉️ Информация", callback_data="pass:info")
     )
 
     return builder.as_markup()
@@ -70,10 +62,7 @@ def get_main_pass_kb():
 def get_back_kb():
     builder = InlineKeyboardBuilder()
     builder.row(
-        types.InlineKeyboardButton(
-            text="⬅️ Назад",
-            callback_data="pass:menu"
-        )
+        types.InlineKeyboardButton(text="⬅️ Назад", callback_data="pass:menu")
     )
     return builder.as_markup()
 
@@ -86,16 +75,14 @@ def get_stage_kb(level: int, can_claim: bool = False):
     if level > 1:
         nav_buttons.append(
             types.InlineKeyboardButton(
-                text="⬅️",
-                callback_data=f"pass:stages:{level - 1}"
+                text="⬅️", callback_data=f"pass:stages:{level - 1}"
             )
         )
 
     if level < MAX_LEVEL:
         nav_buttons.append(
             types.InlineKeyboardButton(
-                text="➡️",
-                callback_data=f"pass:stages:{level + 1}"
+                text="➡️", callback_data=f"pass:stages:{level + 1}"
             )
         )
 
@@ -105,16 +92,12 @@ def get_stage_kb(level: int, can_claim: bool = False):
     if can_claim:
         builder.row(
             types.InlineKeyboardButton(
-                text="✅ Забрать",
-                callback_data=f"pass:claim:{level}"
+                text="✅ Забрать", callback_data=f"pass:claim:{level}"
             )
         )
 
     builder.row(
-        types.InlineKeyboardButton(
-            text="⬅️ Назад",
-            callback_data="pass:menu"
-        )
+        types.InlineKeyboardButton(text="⬅️ Назад", callback_data="pass:menu")
     )
 
     return builder.as_markup()
@@ -126,16 +109,12 @@ def get_bonus_kb(can_claim: bool = True):
     if can_claim:
         builder.row(
             types.InlineKeyboardButton(
-                text="🎁 Забрать бонус",
-                callback_data="pass:bonus_claim"
+                text="🎁 Забрать бонус", callback_data="pass:bonus_claim"
             )
         )
 
     builder.row(
-        types.InlineKeyboardButton(
-            text="⬅️ Назад",
-            callback_data="pass:menu"
-        )
+        types.InlineKeyboardButton(text="⬅️ Назад", callback_data="pass:menu")
     )
 
     return builder.as_markup()
@@ -149,26 +128,23 @@ def get_tasks_kb(tasks: list):
             builder.row(
                 types.InlineKeyboardButton(
                     text=f"✅ Забрать {task['reward']} 🍑",
-                    callback_data=f"pass:task_claim:{task['id']}"
+                    callback_data=f"pass:task_claim:{task['id']}",
                 )
             )
 
     builder.row(
-        types.InlineKeyboardButton(
-            text="⬅️ Назад",
-            callback_data="pass:menu"
-        )
+        types.InlineKeyboardButton(text="⬅️ Назад", callback_data="pass:menu")
     )
     return builder.as_markup()
 
 
-async def safe_edit_or_send_photo(message_obj: types.Message, text: str, reply_markup):
+async def safe_edit_or_send_photo(
+    message_obj: types.Message, text: str, reply_markup
+):
     if message_obj.photo:
         try:
             await message_obj.edit_caption(
-                caption=text,
-                parse_mode="HTML",
-                reply_markup=reply_markup
+                caption=text, parse_mode="HTML", reply_markup=reply_markup
             )
             return
         except TelegramBadRequest:
@@ -176,19 +152,18 @@ async def safe_edit_or_send_photo(message_obj: types.Message, text: str, reply_m
 
     try:
         await message_obj.edit_text(
-            text=text,
-            parse_mode="HTML",
-            reply_markup=reply_markup
+            text=text, parse_mode="HTML", reply_markup=reply_markup
         )
     except TelegramBadRequest:
         await message_obj.answer_photo(
             photo=PHOTO_URL,
             caption=text,
             parse_mode="HTML",
-            reply_markup=reply_markup
+            reply_markup=reply_markup,
         )
 
 
+# Обновляем render_pass_menu и cmd_pass, чтобы они передавали is_ultra в клавиатуру
 async def render_pass_menu(target_message: types.Message, user_id: int):
     pass_user = await get_pass_user(user_id)
     peaches = int(pass_user.get("peaches", 0))
@@ -197,15 +172,11 @@ async def render_pass_menu(target_message: types.Message, user_id: int):
     days_left = get_days_left()
 
     text = build_main_menu_text(
-        user_level=user_level,
-        is_ultra=is_ultra,
-        days_left=days_left
+        user_level=user_level, is_ultra=is_ultra, days_left=days_left
     )
 
     await safe_edit_or_send_photo(
-        message_obj=target_message,
-        text=text,
-        reply_markup=get_main_pass_kb()
+        message_obj=target_message, text=text, reply_markup=get_main_pass_kb(is_ultra)
     )
 
 
@@ -218,16 +189,14 @@ async def cmd_pass(message: types.Message):
     days_left = get_days_left()
 
     text = build_main_menu_text(
-        user_level=user_level,
-        is_ultra=is_ultra,
-        days_left=days_left
+        user_level=user_level, is_ultra=is_ultra, days_left=days_left
     )
 
     await message.answer_photo(
         photo=PHOTO_URL,
         caption=text,
         parse_mode="HTML",
-        reply_markup=get_main_pass_kb()
+        reply_markup=get_main_pass_kb(is_ultra),  # Передаем статус
     )
 
 
@@ -243,21 +212,19 @@ async def cb_pass_stages(callback: types.CallbackQuery):
 
     pass_user = await get_pass_user(callback.from_user.id)
     claimed_levels = await get_claimed_levels(callback.from_user.id)
+    is_ultra = bool(pass_user.get("is_ultra", False)) # Получаем статус
 
     peaches = int(pass_user.get("peaches", 0))
-    text = build_stage_text(level, peaches, claimed_levels)
+    text = build_stage_text(level, peaches, claimed_levels, is_ultra) # Передаем
 
     can_claim = (
-        peaches >= get_level_required_peaches(level)
-        and level not in claimed_levels
+        peaches >= get_level_required_peaches(level) and level not in claimed_levels
     )
 
     kb = get_stage_kb(level=level, can_claim=can_claim)
 
     await safe_edit_or_send_photo(
-        message_obj=callback.message,
-        text=text,
-        reply_markup=kb
+        message_obj=callback.message, text=text, reply_markup=kb
     )
 
     await callback.answer()
@@ -269,9 +236,7 @@ async def cb_pass_tasks(callback: types.CallbackQuery):
     text = build_tasks_text(tasks, get_hours_left_until_reset())
 
     await safe_edit_or_send_photo(
-        message_obj=callback.message,
-        text=text,
-        reply_markup=get_tasks_kb(tasks)
+        message_obj=callback.message, text=text, reply_markup=get_tasks_kb(tasks)
     )
 
     await callback.answer()
@@ -294,101 +259,138 @@ async def cb_pass_task_claim(callback: types.CallbackQuery):
     text += build_tasks_text(tasks, get_hours_left_until_reset())
 
     await safe_edit_or_send_photo(
-        message_obj=callback.message,
-        text=text,
-        reply_markup=get_tasks_kb(tasks)
+        message_obj=callback.message, text=text, reply_markup=get_tasks_kb(tasks)
     )
     await callback.answer("Награда получена!")
 
 
+# Меняем cb_pass_bonus чтобы передавать is_ultra в build_bonus_text
 @router.callback_query(F.data == "pass:bonus")
 async def cb_pass_bonus(callback: types.CallbackQuery):
-    already_claimed = await has_claimed_daily_bonus(callback.from_user.id)
-    text = build_bonus_text(already_claimed=already_claimed)
+    user_id = callback.from_user.id
+    pass_user = await get_pass_user(user_id)
+    is_ultra = pass_user.get("is_ultra", False)
+    already_claimed = await has_claimed_daily_bonus(user_id)
+    text = build_bonus_text(already_claimed=already_claimed, is_ultra=is_ultra)
 
     await safe_edit_or_send_photo(
         message_obj=callback.message,
         text=text,
-        reply_markup=get_bonus_kb(can_claim=not already_claimed)
+        reply_markup=get_bonus_kb(can_claim=not already_claimed),
     )
 
     await callback.answer()
 
 
+# Обновляем cb_pass_bonus_claim, чтобы он правильно обрабатывал новый ответ от claim_daily_bonus
 @router.callback_query(F.data == "pass:bonus_claim")
 async def cb_pass_bonus_claim(callback: types.CallbackQuery):
-    success, new_peaches = await claim_daily_bonus(callback.from_user.id)
+    user_id = callback.from_user.id
+    pass_user = await get_pass_user(user_id)
+    is_ultra = pass_user.get("is_ultra", False)
+
+    success, bonus_added, new_peaches = await claim_daily_bonus(user_id)
 
     if success:
         text = (
             "✅ <b>Бонус получен!</b>\n\n"
-            "Ты забрал ежедневный бонус: 50 персиков 🍑\n"
+            f"Ты забрал ежедневный бонус: {bonus_added} персиков 🍑\n"
             f"Теперь у тебя: <b>{new_peaches}</b> 🍑"
         )
         alert_text = "Бонус получен!"
     else:
-        text = (
-            "🎈 <b>Ежедневный бонус</b>\n\n"
-            "Ты уже забрал бонус сегодня."
-        )
+        text = build_bonus_text(already_claimed=True, is_ultra=is_ultra)
         alert_text = "Ты уже получал бонус сегодня"
 
     await safe_edit_or_send_photo(
-        message_obj=callback.message,
-        text=text,
-        reply_markup=get_back_kb()
+        message_obj=callback.message, text=text, reply_markup=get_back_kb()
     )
 
     await callback.answer(alert_text)
 
 
+# Реализуем покупку Ультра пропуска
 @router.callback_query(F.data == "pass:buy_ultra")
-async def cb_pass_buy_ultra(callback: types.CallbackQuery):
+async def cb_pass_buy_ultra(callback: types.CallbackQuery, get_user, save_db):
+    user_id = callback.from_user.id
+    pass_user = await get_pass_user(user_id)
+
+    if pass_user.get("is_ultra"):
+        await callback.answer("У тебя уже есть Ультра пропуск!", show_alert=True)
+        return
+
+    user_data = await get_user(user_id, callback.from_user.username)
+    inventory = user_data.get("inventory", {})
+    frags = inventory.get("🪙", 0)
+
+    if frags < ULTRA_PASS_COST:
+        await callback.answer(
+            f"Недостаточно фрагов. Нужно {ULTRA_PASS_COST} 🪙", show_alert=True
+        )
+        return
+
+    # Списываем фраги и активируем пропуск
+    inventory["🪙"] -= ULTRA_PASS_COST
+    await set_ultra_pass(user_id, True)
+    await save_db(user_id, user_data)
+
     text = (
-        "💠 <b>Ультра пропуск</b>\n\n"
-        "Покупка Ультра пропуска скоро будет доступна."
+        "✅ <b>Поздравляем!</b>\n\n"
+        "Ты успешно приобрел Ультра пропуск.\n"
+        "Все его преимущества теперь доступны для тебя!"
     )
 
     await safe_edit_or_send_photo(
-        message_obj=callback.message,
-        text=text,
-        reply_markup=get_back_kb()
+        message_obj=callback.message, text=text, reply_markup=get_back_kb()
     )
-
-    await callback.answer()
+    await callback.answer("Ультра пропуск активирован!")
 
 
 @router.callback_query(F.data == "pass:info")
 async def cb_pass_info(callback: types.CallbackQuery):
     text = build_info_text()
-
     await safe_edit_or_send_photo(
-        message_obj=callback.message,
-        text=text,
-        reply_markup=get_back_kb()
+        message_obj=callback.message, text=text, reply_markup=get_back_kb()
     )
-
     await callback.answer()
 
 
+# Обновляем cb_pass_claim для выдачи ультра-наград
 @router.callback_query(F.data.startswith("pass:claim:"))
 async def cb_pass_claim(callback: types.CallbackQuery, get_user, save_db):
     level = int(callback.data.split(":")[2])
+    user_id = callback.from_user.id
 
-    pass_user = await get_pass_user(callback.from_user.id)
-    claimed_levels = await get_claimed_levels(callback.from_user.id)
+    pass_user = await get_pass_user(user_id)
+    claimed_levels = await get_claimed_levels(user_id)
     peaches = int(pass_user.get("peaches", 0))
+    is_ultra = pass_user.get("is_ultra", False)
 
     if level in claimed_levels:
         return await callback.answer("Награда уже получена", show_alert=True)
 
     if peaches < get_level_required_peaches(level):
-        return await callback.answer("Ты ещё не достиг этого уровня", show_alert=True)
+        return await callback.answer(
+            "Ты ещё не достиг этого уровня", show_alert=True
+        )
 
     from .pass_data import PASS_LEVELS
-    rewards = PASS_LEVELS[level]["rewards"]
 
-    user = await get_user(callback.from_user.id, callback.from_user.username)
+    level_data = PASS_LEVELS.get(level, {})
+    rewards_to_give = level_data.get("rewards", {}).copy()
+
+    # Если у пользователя Ультра, добавляем доп. награды
+    if is_ultra:
+        ultra_rewards = level_data.get("ultra_rewards", {})
+        for emoji, amount in ultra_rewards.items():
+            rewards_to_give[emoji] = rewards_to_give.get(emoji, 0) + amount
+
+    if not rewards_to_give:
+        return await callback.answer(
+            "Ошибка: награды для этого уровня не найдены.", show_alert=True
+        )
+
+    user = await get_user(user_id, callback.from_user.username)
     if not user:
         return await callback.answer("Ошибка загрузки профиля", show_alert=True)
 
@@ -404,13 +406,14 @@ async def cb_pass_claim(callback: types.CallbackQuery, get_user, save_db):
             user["inventory"] = {}
             inv = user["inventory"]
 
-    for emoji, amount in rewards.items():
+    for emoji, amount in rewards_to_give.items():
         inv[emoji] = inv.get(emoji, 0) + amount
 
-    await save_db(callback.from_user.id, user)
+    await save_db(user_id, user)
 
     from .pass_db import claim_level
-    await claim_level(callback.from_user.id, level)
+
+    await claim_level(user_id, level)
 
     text = (
         f"✅ <b>Награда за уровень {level} получена!</b>\n\n"
@@ -418,15 +421,10 @@ async def cb_pass_claim(callback: types.CallbackQuery, get_user, save_db):
     )
 
     await safe_edit_or_send_photo(
-        message_obj=callback.message,
-        text=text,
-        reply_markup=get_back_kb()
+        message_obj=callback.message, text=text, reply_markup=get_back_kb()
     )
 
     await callback.answer("Награда получена!")
-
-
-ALLOWED_CHAT_ID = -1003858938513
 
 
 @router.message()
@@ -444,10 +442,3 @@ async def track_pass_messages(message: types.Message):
         return
 
     await progress_task(message.from_user.id, "chat_50", 1)
-
-
-
-
-
-
-

@@ -1,4 +1,10 @@
-from ivent.pass_data import SEASON_TITLE, SEASON_DESCRIPTION
+from ivent.pass_data import (
+    SEASON_TITLE,
+    SEASON_DESCRIPTION,
+    ULTRA_PASS_DAILY_BONUS,
+    ULTRA_PASS_COST,
+    DAILY_BONUS_REWARD,
+)
 
 
 def build_main_menu_text(user_level: int, is_ultra: bool, days_left: int) -> str:
@@ -38,8 +44,7 @@ def build_tasks_text(tasks: list, hours_left_text: str) -> str:
     return "\n".join(lines)
 
 
-
-def build_bonus_text(already_claimed: bool) -> str:
+def build_bonus_text(already_claimed: bool, is_ultra: bool) -> str:
     if already_claimed:
         return (
             "🎁 <b>Ежедневный бонус</b>\n\n"
@@ -47,10 +52,14 @@ def build_bonus_text(already_claimed: bool) -> str:
             "Возвращайся завтра за новой порцией 🍑"
         )
 
+    bonus_text = f"<b>{DAILY_BONUS_REWARD}</b> 🍑"
+    if is_ultra:
+        bonus_text += f" (+{ULTRA_PASS_DAILY_BONUS} 🍑 за Ультра пропуск)"
+
     return (
         "🎁 <b>Ежедневный бонус</b>\n\n"
         "Нажми кнопку ниже, чтобы забрать ежедневный бонус:\n"
-        "50 🍑"
+        f"{bonus_text}"
     )
 
 
@@ -60,7 +69,10 @@ def build_info_text() -> str:
         "— За каждый уровень нужно 150 🍑\n"
         "— Всего в сезоне 10 уровней\n"
         "— Каждый день выдается 3 случайных задания\n"
-        "— Также доступен ежедневный бонус 50 🍑\n"
-        "— Награды можно забирать по мере достижения уровней\n"
-        "— Если у тебя есть Ультра пропуск, позже можно будет открыть доп. возможности"
+        f"— Также доступен ежедневный бонус {DAILY_BONUS_REWARD} 🍑\n\n"
+        "💠 <b>Преимущества Ультра пропуска:</b>\n"
+        f"— Стоимость: {ULTRA_PASS_COST} 🪙\n"
+        "— В 2 раза больше 🍑 за ежедневные задания\n"
+        f"— Дополнительный ежедневный бонус: +{ULTRA_PASS_DAILY_BONUS} 🍑\n"
+        "— Эксклюзивные награды за каждый уровень"
     )

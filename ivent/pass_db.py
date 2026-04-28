@@ -289,21 +289,27 @@ async def update_task_progress(task_row_id: int, progress: int, is_completed: bo
 
 
 async def claim_daily_bonus(user_id: int):
+    from .pass_data import DAILY_BONUS_REWARD, ULTRA_PASS_DAILY_BONUS
+
     user = await get_pass_user(user_id)
     today = today_date()
 
     last_claim = user.get("bonus_last_claim_date")
     if last_claim == str(today):
-        return False, user.get("peaches", 0)
+        return False, 0, user.get("peaches", 0)
 
-    new_peaches = int(user.get("peaches", 0)) + DAILY_BONUS_REWARD
+    bonus_to_add = DAILY_BONUS_REWARD
+    if user.get("is_ultra"):
+        bonus_to_add += ULTRA_PASS_DAILY_BONUS
+
+    new_peaches = int(user.get("peaches", 0)) + bonus_to_add
 
     await update_pass_user(user_id, {
         "peaches": new_peaches,
         "bonus_last_claim_date": today
     })
 
-    return True, new_peaches
+    return True, bonus_to_add, new_peaches
 
 
 async def has_claimed_daily_bonus(user_id: int):
