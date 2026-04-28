@@ -21,14 +21,20 @@ async def cmd_start_private(message: types.Message, get_user, save_db):
 
     # Проверяем и выдаем ачивку за регистрацию
     if "registration" not in achievements:
+        print(f"\n[DEBUG] Новый пользователь {message.from_user.id}. Выдаю ачивку и засчитываю квест start_pm_1.")
         achievements.append("registration")
         user["achievements"] = achievements
-        await save_db(message.from_user.id, user)  # Сохраняем в базу
+        await save_db(message.from_user.id, user)
+        await progress_task(message.from_user.id, "start_pm_1", 1)
 
         # Дописываем сообщение о получении ачивки в конец текста
         welcome_text += "\n\n<i>🏆 Получена ачивка: ♦️ <b>Новая кровь</b></i>"
 
+        # Засчитываем задание только для новых пользователей
         await progress_task(message.from_user.id, "start_pm_1", 1)
+    else:
+        print(f"\n[DEBUG] Пользователь {message.from_user.id} уже зарегистрирован. Квест start_pm_1 не выполняется.")
+
 
     # Обязательно добавляем parse_mode="HTML", чтобы курсив и жирный шрифт сработали
     await message.answer(

@@ -34,6 +34,7 @@ from games.igram import router as igram_router
 from handlers.ivent import router as ivent_router
 from craft.craftlogic import router as craft_router
 from games.rost import router as rost_router
+from handlers.start import router as start_router
 
 from ivent.pass_db import setup_pass_db
 
@@ -261,6 +262,7 @@ async def main():
     dp.include_router(craft_router)
     dp.include_router(rost_router)
     dp.include_router(pass_router)
+    dp.include_router(start_router)
 
     await bot.delete_webhook(drop_pending_updates=True)
     logger.info("🚀 БОТ ЗАПУЩЕН НА ОБЛАЧНОЙ БАЗЕ (SUPABASE)!")
