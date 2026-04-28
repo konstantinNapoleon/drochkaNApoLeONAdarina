@@ -7,13 +7,17 @@ router = Router()
 
 @router.message(Command("start"), F.chat.type == "private")
 async def cmd_start_private(message: types.Message, get_user, save_db):
-    # Получаем данные пользователя
+    # --- Логика для Дроч Пасса ---
+    try:
+        # Теперь просто вызываем функцию, она сама разберется с базой.
+        # Я убрал отсюда создание db_connection и передачу его в функцию.
+        await progress_task(message.from_user.id, "start_pm_1", 1)
+    except Exception as e:
+        print(f"[ERROR] Ошибка при вызове progress_task в start.py: {e}")
+
+    # --- Твоя стандартная логика приветствия и ачивки (ничего не менял) ---
     user = await get_user(message.from_user.id, message.from_user.username)
     achievements = user.get("achievements", [])
-
-    # >>> ВОТ ИСПРАВЛЕНИЕ <<<
-    # Сначала всегда пытаемся засчитать задание
-    await progress_task(message.from_user.id, "start_pm_1", 1)
 
     welcome_text = (
         "👋 Добро пожаловать в @droch_bot\n\n"
@@ -23,16 +27,12 @@ async def cmd_start_private(message: types.Message, get_user, save_db):
         "🤔 Хочешь обменяться валютой с другим участником бота? Отличное решение! Для этого у нас есть официальный чат: https://t.me/official_chat_droch"
     )
 
-    # Проверяем и выдаем ачивку за регистрацию
     if "registration" not in achievements:
         achievements.append("registration")
         user["achievements"] = achievements
         await save_db(message.from_user.id, user)
-
-        # Дописываем сообщение о получении ачивки в конец текста
         welcome_text += "\n\n<i>🏆 Получена ачивка: ♦️ <b>Новая кровь</b></i>"
 
-    # Обязательно добавляем parse_mode="HTML", чтобы курсив и жирный шрифт сработали
     await message.answer(
         welcome_text,
         disable_web_page_preview=True,
