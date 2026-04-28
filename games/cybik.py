@@ -93,6 +93,7 @@ async def play_dice(message: types.Message, command: CommandObject, get_user, sa
     # --- ПРОИГРЫШ ---
     penalty_time = 6 * 3600
     user["belt_expire_time"] = current_time + penalty_time
+    user["lock_reason"] = None
 
     await save_db(user_id, user)
     await message.reply("❌ Ты проиграл! 🐷 Надел пояс верности на 6 часов.")
