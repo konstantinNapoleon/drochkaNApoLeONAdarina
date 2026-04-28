@@ -2,6 +2,7 @@ import html
 from aiogram import Router, types, F
 from aiogram.filters import Command, CommandObject
 from items import GAME_ITEMS
+from ivent.pass_tasks import progress_task
 
 router = Router()
 
@@ -92,6 +93,8 @@ async def cmd_give_item(message: types.Message, get_user, save_db, command: Comm
  # ТЕХНИЧЕСКАЯ ПРАВКА: добавлен await и сохранение обоих пользователей
  await save_db(message.from_user.id, sender_user)
  await save_db(target_user_id, target_user)
+ await progress_task(message.from_user.id, "give_1", 1)
+
 
  item_name = GAME_ITEMS[item_emoji].get("name", "предмет")
  target_name = html.escape(message.reply_to_message.from_user.first_name if message.reply_to_message else f"ID {target_user_id}")

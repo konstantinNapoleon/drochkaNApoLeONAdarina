@@ -17,7 +17,13 @@ def build_tasks_text(tasks: list, hours_left_text: str) -> str:
     lines = ["📋 <b>Текущие ежедневные задания:</b>\n"]
 
     for idx, task in enumerate(tasks, start=1):
-        status = "✅" if task.get("is_completed") else "❌"
+        if task.get("claimed"):
+            status = "🏆"
+        elif task.get("is_completed"):
+            status = "✅"
+        else:
+            status = "❌"
+
         progress = task.get("progress", 0)
         target = task.get("target", 1)
         reward = task.get("reward", 0)
@@ -30,6 +36,7 @@ def build_tasks_text(tasks: list, hours_left_text: str) -> str:
 
     lines.append(f"Обновление через {hours_left_text}")
     return "\n".join(lines)
+
 
 
 def build_bonus_text(already_claimed: bool) -> str:

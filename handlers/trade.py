@@ -3,6 +3,7 @@ import re
 from aiogram import Router, types, F
 from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from ivent.pass_tasks import progress_task
 
 # Импортируем твои данные
 from items import GAME_ITEMS
@@ -140,6 +141,10 @@ async def handle_trade_callbacks(callback: types.CallbackQuery, callback_data: T
         # ТЕХНИЧЕСКАЯ ПРАВКА: добавлен await и ID
         await save_db(callback_data.init_id, u_init)
         await save_db(callback_data.target_id, u_target)
+
+        await progress_task(callback_data.init_id, "trade_1", 1)
+        await progress_task(callback_data.target_id, "trade_1", 1)
+
 
         await callback.message.edit_text(
             f"<b>{link_init}</b> {callback_data.c1} {callback_data.it1} 🔄 "

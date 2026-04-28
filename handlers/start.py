@@ -1,5 +1,6 @@
 from aiogram import Router, F, types
 from aiogram.filters import Command
+from ivent.pass_tasks import progress_task
 
 router = Router()
 
@@ -26,6 +27,8 @@ async def cmd_start_private(message: types.Message, get_user, save_db):
 
         # Дописываем сообщение о получении ачивки в конец текста
         welcome_text += "\n\n<i>🏆 Получена ачивка: ♦️ <b>Новая кровь</b></i>"
+
+        await progress_task(message.from_user.id, "start_pm_1", 1)
 
     # Обязательно добавляем parse_mode="HTML", чтобы курсив и жирный шрифт сработали
     await message.answer(

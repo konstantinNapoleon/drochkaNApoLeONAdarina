@@ -3,6 +3,7 @@ import time
 import asyncio
 from aiogram import Router, F, types
 from aiogram.filters import Command, CommandObject
+from ivent.pass_tasks import progress_task
 
 router = Router()
 
@@ -53,6 +54,8 @@ async def play_dice(message: types.Message, command: CommandObject, get_user, sa
 
   # Ждем завершения анимации
   await asyncio.sleep(3.5)
+  await progress_task(user_id, "dice_1", 1)
+
 
   if dice_value == user_guess:
     # --- ПОБЕДА ---
