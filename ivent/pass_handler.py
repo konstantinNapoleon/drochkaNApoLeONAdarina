@@ -37,29 +37,29 @@ def get_main_pass_kb():
 
     builder.row(
         types.InlineKeyboardButton(
-            text="📦 Этапы",
+            text="🧩 Этапы",
             callback_data="pass:stages:1"
         )
     )
     builder.row(
         types.InlineKeyboardButton(
-            text="📋 Задания",
+            text="📝 Задания",
             callback_data="pass:tasks"
         ),
         types.InlineKeyboardButton(
-            text="🎁 Бонус",
+            text="🎈 Бонус",
             callback_data="pass:bonus"
         )
     )
     builder.row(
         types.InlineKeyboardButton(
-            text="🔥 Купить Ультра пропуск",
+            text="💠 Купить Ультра пропуск",
             callback_data="pass:buy_ultra"
         )
     )
     builder.row(
         types.InlineKeyboardButton(
-            text="ℹ️ Информация",
+            text="⁉️ Информация",
             callback_data="pass:info"
         )
     )
@@ -322,13 +322,13 @@ async def cb_pass_bonus_claim(callback: types.CallbackQuery):
     if success:
         text = (
             "✅ <b>Бонус получен!</b>\n\n"
-            "Ты забрал ежедневный бонус: 50 🍑\n"
+            "Ты забрал ежедневный бонус: 50 персиков 🍑\n"
             f"Теперь у тебя: <b>{new_peaches}</b> 🍑"
         )
         alert_text = "Бонус получен!"
     else:
         text = (
-            "⌛️ <b>Ежедневный бонус</b>\n\n"
+            "🎈 <b>Ежедневный бонус</b>\n\n"
             "Ты уже забрал бонус сегодня."
         )
         alert_text = "Ты уже получал бонус сегодня"
@@ -345,7 +345,7 @@ async def cb_pass_bonus_claim(callback: types.CallbackQuery):
 @router.callback_query(F.data == "pass:buy_ultra")
 async def cb_pass_buy_ultra(callback: types.CallbackQuery):
     text = (
-        "🔥 <b>Ультра пропуск</b>\n\n"
+        "💠 <b>Ультра пропуск</b>\n\n"
         "Покупка Ультра пропуска скоро будет доступна."
     )
 

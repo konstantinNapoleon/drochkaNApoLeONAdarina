@@ -49,20 +49,14 @@ DAILY_TASK_POOL = [
     {
         "id": "give_1",
         "text": "Передать 1 вещь через /give",
-        "target": 1,
+        "target": 5,
         "reward": 20,
     },
     {
         "id": "dice_1",
         "text": "Сыграть в /dice 1 раз",
-        "target": 1,
+        "target": 3,
         "reward": 10,
-    },
-    {
-        "id": "start_pm_1",
-        "text": "Написать боту в ЛС через /start",
-        "target": 1,
-        "reward": 50,
     },
 ]
 
