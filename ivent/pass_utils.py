@@ -90,9 +90,17 @@ def get_hours_left_until_reset() -> str:
     return f"{hours}ч {minutes}м"
 
 
-def build_stage_text(level: int, peaches: int, claimed_levels: list[int]) -> str:
+def build_stage_text(level: int, peaches: int, claimed_levels: list[int], is_ultra: bool) -> str:
     level_data = PASS_LEVELS[level]
-    rewards_text = format_rewards(level_data["rewards"])
+
+    # Собираем награды в один словарь, добавляя Ультра-награды, если пропуск активен
+    rewards_to_show = level_data.get("rewards", {}).copy()
+    if is_ultra:
+        ultra_rewards = level_data.get("ultra_rewards", {})
+        for emoji, amount in ultra_rewards.items():
+            rewards_to_show[emoji] = rewards_to_show.get(emoji, 0) + amount
+
+    rewards_text = format_rewards(rewards_to_show)
     status = get_level_status(peaches, level, claimed_levels)
     current, total = get_level_progress(peaches, level)
     bar = build_progress_bar(current, total)
