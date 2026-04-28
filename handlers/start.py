@@ -5,10 +5,11 @@ from ivent.pass_tasks import progress_task
 router = Router()
 
 
-@router.message(Command("start"), F.chat.type == "private")
+# >>> ИЗМЕНЕНИЕ ТУТ <<<
+@router.message(F.text.lower() == "привет", F.chat.type == "private")
 async def cmd_start_private(message: types.Message, get_user, save_db):
     # ЭТА СТРОКА — ГЛАВНЫЙ ТЕСТ
-    print("\n[DEBUG] Зашел в обработчик cmd_start_private!")
+    print("\n[DEBUG] Зашел в обработчик cmd_start_private (через 'Привет')!")
 
     # Получаем данные пользователя
     user = await get_user(message.from_user.id, message.from_user.username)
