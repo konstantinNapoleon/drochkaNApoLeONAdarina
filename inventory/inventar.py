@@ -150,6 +150,14 @@ BONUS_CODES = {
     "claimed_by": set()
   },
 
+    "SEASON1-PROPUSK": {
+        "rewards": {"🪙": 500},
+        "limit": 3,
+        "used_count": 0,
+        "expires": datetime.datetime(2026, 5, 1),
+        "claimed_by": set()
+    },
+
   "ТЕХНЕПОЛАДКИ": {
     "rewards": {"💰": 3000},
     "limit": 500,
