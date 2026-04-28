@@ -7,11 +7,13 @@ router = Router()
 
 @router.message(Command("start"), F.chat.type == "private")
 async def cmd_start_private(message: types.Message, get_user, save_db):
+    # ЭТА СТРОКА — ГЛАВНЫЙ ТЕСТ
+    print("\n[DEBUG] Зашел в обработчик cmd_start_private!")
+
     # Получаем данные пользователя
     user = await get_user(message.from_user.id, message.from_user.username)
     achievements = user.get("achievements", [])
 
-    # >>> ВОТ ИСПРАВЛЕНИЕ <<<
     # Сначала всегда пытаемся засчитать задание
     await progress_task(message.from_user.id, "start_pm_1", 1)
 
