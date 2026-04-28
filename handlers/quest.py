@@ -7,7 +7,7 @@ router = Router()
 
 
 # Квест: Получить пизды от создателя
-@router.message(F.text.casefold() == "дать пизды")
+@router.message(F.text.casefold() == "тебе пизда")
 async def quest_pizda(message: types.Message, get_user, save_db, bot: Bot):
     if not message.reply_to_message or message.reply_to_message.from_user.id != CREATOR_ID:
         return
