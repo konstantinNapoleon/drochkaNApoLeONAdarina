@@ -35,6 +35,8 @@ from handlers.ivent import router as ivent_router
 from craft.craftlogic import router as craft_router
 from games.rost import router as rost_router
 
+from ivent.pass_db import setup_pass_db
+
 
 from ivent.pass_handler import router as pass_router
 
@@ -43,6 +45,8 @@ from ivent.pass_handler import router as pass_router
 # --- НАСТРОЙКИ БОТА ---
 TOKEN = os.getenv("BOT_TOKEN")
 DATABASE_URL = os.getenv("DATABASE_URL")
+setup_pass_db(DATABASE_URL)
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -58,22 +62,87 @@ def get_db_connection():
     return psycopg2.connect(DATABASE_URL, sslmode='require')
 
 def init_db():
-    """Создает таблицу в облаке, если ее еще нет"""
+    """Создает таблицы в облаке, если их еще нет"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 user_id TEXT PRIMARY KEY,
                 data TEXT
             )
         """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS ivent_pass_users (
+                id BIGSERIAL PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                season_id TEXT NOT NULL,
+                peaches INTEGER NOT NULL DEFAULT 0,
+                is_ultra BOOLEAN NOT NULL DEFAULT FALSE,
+                bonus_last_claim_date DATE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE(user_id, season_id)
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS ivent_pass_claims (
+                id BIGSERIAL PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                season_id TEXT NOT NULL,
+                level INTEGER NOT NULL,
+                claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE(user_id, season_id, level)
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS ivent_pass_daily_tasks (
+                id BIGSERIAL PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                season_id TEXT NOT NULL,
+                task_date DATE NOT NULL,
+                task_id TEXT NOT NULL,
+                task_text TEXT NOT NULL,
+                progress INTEGER NOT NULL DEFAULT 0,
+                target INTEGER NOT NULL,
+                reward INTEGER NOT NULL,
+                is_completed BOOLEAN NOT NULL DEFAULT FALSE,
+                claimed BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_ivent_pass_users_user_id
+            ON ivent_pass_users(user_id)
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_ivent_pass_claims_user_id
+            ON ivent_pass_claims(user_id)
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_ivent_pass_daily_tasks_user_id
+            ON ivent_pass_daily_tasks(user_id)
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_ivent_pass_daily_tasks_user_date
+            ON ivent_pass_daily_tasks(user_id, task_date)
+        """)
+
         conn.commit()
         cursor.close()
         conn.close()
         logger.info("Облачная база данных успешно инициализирована.")
     except Exception as e:
         logger.error(f"Ошибка при инициализации базы данных: {e}")
+
 
 async def get_user(user_id, username=None):
     """Получает данные пользователя из облака."""
