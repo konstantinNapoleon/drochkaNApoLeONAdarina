@@ -85,13 +85,13 @@ DAILY_TASK_POOL = [
     },
     {
         "id": "give_1",
-        "text": "Передать 1 вещь через /give",
+        "text": "Передать 5 вещей через /give",
         "target": 5,
         "reward": 20,
     },
     {
         "id": "dice_1",
-        "text": "Сыграть в /dice 1 раз",
+        "text": "Сыграть в /dice 3 разф",
         "target": 3,
         "reward": 10,
     },
