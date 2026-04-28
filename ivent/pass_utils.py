@@ -93,14 +93,34 @@ def get_hours_left_until_reset() -> str:
 def build_stage_text(level: int, peaches: int, claimed_levels: list[int], is_ultra: bool) -> str:
     level_data = PASS_LEVELS[level]
 
-    # Собираем награды в один словарь, добавляя Ультра-награды, если пропуск активен
-    rewards_to_show = level_data.get("rewards", {}).copy()
-    if is_ultra:
-        ultra_rewards = level_data.get("ultra_rewards", {})
-        for emoji, amount in ultra_rewards.items():
-            rewards_to_show[emoji] = rewards_to_show.get(emoji, 0) + amount
+    # 1. Получаем оба типа наград
+    regular_rewards = level_data.get("rewards", {})
+    ultra_rewards = level_data.get("ultra_rewards", {})
 
-    rewards_text = format_rewards(rewards_to_show)
+    all_rewards_lines = []
+
+    # 2. Форматируем обычные награды
+    if regular_rewards:
+        all_rewards_lines.extend(format_rewards(regular_rewards).split('\n'))
+
+    # 3. Форматируем Ультра-награды с логикой замка
+    if ultra_rewards:
+        for emoji, amount in ultra_rewards.items():
+            item_data = GAME_ITEMS.get(emoji, {})
+            item_name = item_data.get("name", "Неизвестный предмет")
+
+            base_line = f"{emoji} <b>{item_name}</b>"
+            if amount > 1:
+                base_line += f" x{amount}"
+
+            # Если у пользователя нет пропуска - добавляем замок
+            if not is_ultra:
+                all_rewards_lines.append(f"🔒 {base_line}")
+            else:
+                # Иначе показываем как обычную награду
+                all_rewards_lines.append(base_line)
+
+    rewards_text = "\n".join(all_rewards_lines)
     status = get_level_status(peaches, level, claimed_levels)
     current, total = get_level_progress(peaches, level)
     bar = build_progress_bar(current, total)
