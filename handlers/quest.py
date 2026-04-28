@@ -1,6 +1,7 @@
 from aiogram import Router, types, F, Bot
 from aiogram.filters import Command
-from drochpass import add_quest_progress, QUEST_CHAT_ID, CREATOR_ID  # Импортируем нужные константы
+from handlers.drochpass import add_quest_progress, QUEST_CHAT_ID
+  # Импортируем нужные константы
 
 router = Router()
 
