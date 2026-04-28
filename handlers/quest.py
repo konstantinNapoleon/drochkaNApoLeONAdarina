@@ -1,9 +1,9 @@
 from aiogram import Router, types, F, Bot
-from aiogram.filters import Command
 from handlers.drochpass import add_quest_progress, QUEST_CHAT_ID
-  # Импортируем нужные константы
 
 router = Router()
+CREATOR_ID = 5006326062
+
 
 
 # Квест: Получить пизды от создателя
