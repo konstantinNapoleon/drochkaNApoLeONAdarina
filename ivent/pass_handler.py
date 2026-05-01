@@ -2,7 +2,7 @@ from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.exceptions import TelegramBadRequest
-from .items import GAME_ITEMS # Эта строчка может уже быть в pass_utils, но здесь она тоже нужна
+from items import GAME_ITEMS # Эта строчка может уже быть в pass_utils, но здесь она тоже нужна
 
 
 # Импортируем нужные данные
