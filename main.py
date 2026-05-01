@@ -30,7 +30,7 @@ from inventory.xlame import router as xlame_router
 from tools.refprog import router as refprog_router
 from handlers.etel import router as etel_router
 from games.cybik import router as cybik_router
-from games.igram import router as igram_router
+from games.ttt import router as ttt_router
 from handlers.ivent import router as ivent_router
 from craft.craftlogic import router as craft_router
 from games.rost import router as rost_router
@@ -257,7 +257,7 @@ async def main():
     dp.include_router(refprog_router)
     dp.include_router(etel_router)
     dp.include_router(cybik_router)
-    dp.include_router(igram_router)
+    dp.include_router(ttt_router)
     dp.include_router(ivent_router)
     dp.include_router(craft_router)
     dp.include_router(rost_router)

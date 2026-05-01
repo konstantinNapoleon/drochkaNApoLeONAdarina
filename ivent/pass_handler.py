@@ -34,11 +34,13 @@ PHOTO_URL = "https://i.yapx.ru/dezXF.jpg"
 ALLOWED_CHAT_ID = -1003858938513
 
 
-def get_main_pass_kb(is_ultra: bool):  # Теперь функция принимает статус Ультра
+def get_main_pass_kb(is_ultra: bool, user_level: int):
+  # Теперь функция принимает статус Ультра
     builder = InlineKeyboardBuilder()
-
+    stage_to_open = max(1, user_level)
     builder.row(
-        types.InlineKeyboardButton(text="🧩 Этапы", callback_data="pass:stages:1")
+        types.InlineKeyboardButton(
+            text="🧩 Этапы", callback_data=f"pass:stages:{stage_to_open}")
     )
     builder.row(
         types.InlineKeyboardButton(text="📝 Задания", callback_data="pass:tasks"),
@@ -176,7 +178,7 @@ async def render_pass_menu(target_message: types.Message, user_id: int):
     )
 
     await safe_edit_or_send_photo(
-        message_obj=target_message, text=text, reply_markup=get_main_pass_kb(is_ultra)
+        message_obj=target_message, text=text, reply_markup=get_main_pass_kb(is_ultra, user_level)
     )
 
 
@@ -196,7 +198,7 @@ async def cmd_pass(message: types.Message):
         photo=PHOTO_URL,
         caption=text,
         parse_mode="HTML",
-        reply_markup=get_main_pass_kb(is_ultra),  # Передаем статус
+        reply_markup=get_main_pass_kb(is_ultra, user_level),  # Передаем статус
     )
 
 
