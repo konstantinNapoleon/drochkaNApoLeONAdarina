@@ -1,6 +1,7 @@
 import random
 import datetime
 import psycopg2
+from psycopg2.extras import RealDictCursor
 
 from .pass_data import (
     SEASON_ID,
@@ -156,25 +157,6 @@ async def get_claimed_levels(user_id: int) -> dict:
         cursor.close()
         conn.close()
 
-
-async def is_level_claimed(user_id: int, level: int):
-    uid = str(user_id)
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    try:
-        cursor.execute("""
-                SELECT 1
-                FROM ivent_pass_claims
-                WHERE user_id = %s AND season_id = %s AND level = %s
-                LIMIT 1
-            """, (uid, SEASON_ID, level))
-
-        return cursor.fetchone() is not None
-    finally:
-        cursor.close()
-        conn.close()
 
 
 async def claim_level(user_id: int, level: int, regular: bool, ultra: bool):
