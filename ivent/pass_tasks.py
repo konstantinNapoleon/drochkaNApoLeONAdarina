@@ -1,4 +1,4 @@
-from .pass_db import get_or_create_today_tasks, update_task_progress, add_peaches
+from .pass_db import get_or_create_today_tasks, update_task_progress, add_peaches, get_pass_user
 
 
 async def progress_task(user_id: int, task_id: str, amount: int = 1):
@@ -53,43 +53,52 @@ async def progress_task(user_id: int, task_id: str, amount: int = 1):
 
 
 async def claim_task_reward(user_id: int, task_row_id: int):
-    """
-    Забирает награду за выполненное ежедневное задание.
-    """
-    from .pass_db import get_today_tasks, get_db_connection
+  """
+  Забирает награду за выполненное ежедневное задание.
+  """
+  from .pass_db import get_today_tasks, get_db_connection
 
-    tasks = await get_today_tasks(user_id)
-    target_task = None
+  tasks = await get_today_tasks(user_id)
+  target_task = None
 
-    for task in tasks:
-        if int(task["id"]) == int(task_row_id):
-            target_task = task
-            break
+  for task in tasks:
+    if int(task["id"]) == int(task_row_id):
+      target_task = task
+      break
 
-    if not target_task:
-        return False, "Задание не найдено"
+  if not target_task:
+    return False, "Задание не найдено"
 
-    if target_task.get("claimed"):
-        return False, "Награда уже получена"
+  if target_task.get("claimed"):
+    return False, "Награда уже получена"
 
-    if not target_task.get("is_completed"):
-        return False, "Задание еще не выполнено"
+  if not target_task.get("is_completed"):
+    return False, "Задание еще не выполнено"
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+  conn = get_db_connection()
+  cursor = conn.cursor()
 
-    try:
-        cursor.execute("""
-            UPDATE ivent_pass_daily_tasks
-            SET claimed = TRUE
-            WHERE id = %s
-        """, (task_row_id,))
-        conn.commit()
-    finally:
-        cursor.close()
-        conn.close()
+  try:
+    cursor.execute("""
+      UPDATE ivent_pass_daily_tasks
+      SET claimed = TRUE
+      WHERE id = %s
+    """, (task_row_id,))
+    conn.commit()
+  finally:
+    cursor.close()
+    conn.close()
 
-    reward = int(target_task.get("reward", 0))
-    new_peaches = await add_peaches(user_id, reward)
+  # Получаем данные пользователя, чтобы проверить Ультра пасс
+  pass_user = await get_pass_user(user_id)
+  is_ultra = pass_user.get("is_ultra", False)
 
-    return True, new_peaches
+  reward = int(target_task.get("reward", 0))
+
+  # Удваиваем награду, если есть пасс
+  if is_ultra:
+    reward *= 2
+
+  new_peaches = await add_peaches(user_id, reward)
+
+  return True, new_peaches

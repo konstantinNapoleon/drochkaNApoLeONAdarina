@@ -19,29 +19,34 @@ def build_main_menu_text(user_level: int, is_ultra: bool, days_left: int) -> str
     )
 
 
-def build_tasks_text(tasks: list, hours_left_text: str) -> str:
-    lines = ["📋 <b>Текущие ежедневные задания:</b>\n"]
 
-    for idx, task in enumerate(tasks, start=1):
-        if task.get("claimed"):
-            status = "🏆"
-        elif task.get("is_completed"):
-            status = "✅"
-        else:
-            status = "❌"
+def build_tasks_text(tasks: list, hours_left_text: str, is_ultra: bool) -> str: # Добавляем is_ultra
+  lines = ["📋 <b>Текущие ежедневные задания:</b>\n"]
 
-        progress = task.get("progress", 0)
-        target = task.get("target", 1)
-        reward = task.get("reward", 0)
+  for idx, task in enumerate(tasks, start=1):
+    if task.get("claimed"):
+      status = "🏆"
+    elif task.get("is_completed"):
+      status = "✅"
+    else:
+      status = "❌"
 
-        lines.append(
-            f"[{idx}] {task['text']} ({status})\n"
-            f"Прогресс: {progress}/{target}\n"
-            f"Награда: {reward} 🍑\n"
-        )
+    progress = task.get("progress", 0)
+    target = task.get("target", 1)
+    reward = task.get("reward", 0)
 
-    lines.append(f"Обновление через {hours_left_text}")
-    return "\n".join(lines)
+    # Удваиваем награду для Ультра пасса
+    if is_ultra:
+      reward *= 2
+
+    lines.append(
+      f"[{idx}] {task['text']} ({status})\n"
+      f"Прогресс: {progress}/{target}\n"
+      f"Награда: {reward} 🍑\n"
+    )
+
+  lines.append(f"Обновление через {hours_left_text}")
+  return "\n".join(lines)
 
 
 def build_bonus_text(already_claimed: bool, is_ultra: bool) -> str:

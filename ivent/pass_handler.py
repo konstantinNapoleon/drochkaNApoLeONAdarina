@@ -4,7 +4,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.exceptions import TelegramBadRequest
 
 # Импортируем нужные данные
-from .pass_data import MAX_LEVEL, ULTRA_PASS_COST
+from .pass_data import MAX_LEVEL, ULTRA_PASS_COST, PASS_LEVELS
 from .pass_tasks import claim_task_reward, progress_task
 from .pass_texts import (
     build_main_menu_text,
@@ -208,60 +208,89 @@ async def cb_pass_menu(callback: types.CallbackQuery):
 
 @router.callback_query(F.data.startswith("pass:stages:"))
 async def cb_pass_stages(callback: types.CallbackQuery):
-    level = int(callback.data.split(":")[2])
+  level = int(callback.data.split(":")[2])
 
-    pass_user = await get_pass_user(callback.from_user.id)
-    claimed_levels = await get_claimed_levels(callback.from_user.id)
-    is_ultra = bool(pass_user.get("is_ultra", False)) # Получаем статус
+  pass_user = await get_pass_user(callback.from_user.id)
+  claimed_levels_data = await get_claimed_levels(callback.from_user.id)
+  is_ultra = bool(pass_user.get("is_ultra", False))
+  peaches = int(pass_user.get("peaches", 0))
 
-    peaches = int(pass_user.get("peaches", 0))
-    text = build_stage_text(level, peaches, claimed_levels, is_ultra) # Передаем
+  text = build_stage_text(level, peaches, claimed_levels_data, is_ultra)
 
-    can_claim = (
-        peaches >= get_level_required_peaches(level) and level not in claimed_levels
-    )
+  # --- ИСПРАВЛЕНИЕ НАЧИНАЕТСЯ ЗДЕСЬ ---
 
-    kb = get_stage_kb(level=level, can_claim=can_claim)
+  # Логика кнопки "Забрать"
+  can_claim = False
+  if peaches >= get_level_required_peaches(level):
+    level_claims = claimed_levels_data.get(str(level), {})
+    level_data = PASS_LEVELS.get(level, {})
 
-    await safe_edit_or_send_photo(
-        message_obj=callback.message, text=text, reply_markup=kb
-    )
+    # Если не забрана обычная награда
+    if not level_claims.get("regular"):
+      can_claim = True
+    # Или если есть ультра награда, куплен пропуск и она не забрана
+    elif (is_ultra and "ultra_rewards" in level_data
+       and not level_claims.get("ultra")):
+      can_claim = True
 
-    await callback.answer()
+  # Создание клавиатуры и отправка сообщения теперь ВНЕ условия
+  kb = get_stage_kb(level=level, can_claim=can_claim)
+
+  await safe_edit_or_send_photo(
+    message_obj=callback.message, text=text, reply_markup=kb
+  )
+  await callback.answer()
+
+  # --- ИСПРАВЛЕНИЕ ЗАКАНЧИВАЕТСЯ ЗДЕСЬ ---
+
 
 
 @router.callback_query(F.data == "pass:tasks")
 async def cb_pass_tasks(callback: types.CallbackQuery):
+    pass_user = await get_pass_user(callback.from_user.id)
+    is_ultra = bool(pass_user.get("is_ultra", False))
     tasks = await get_or_create_today_tasks(callback.from_user.id)
-    text = build_tasks_text(tasks, get_hours_left_until_reset())
+
+    # Передаем is_ultra в build_tasks_text
+    text = build_tasks_text(tasks, get_hours_left_until_reset(), is_ultra)
 
     await safe_edit_or_send_photo(
         message_obj=callback.message, text=text, reply_markup=get_tasks_kb(tasks)
     )
-
     await callback.answer()
 
 
 @router.callback_query(F.data.startswith("pass:task_claim:"))
 async def cb_pass_task_claim(callback: types.CallbackQuery):
-    task_row_id = int(callback.data.split(":")[2])
+  task_row_id = int(callback.data.split(":")[2])
+  user_id = callback.from_user.id
 
-    success, result = await claim_task_reward(callback.from_user.id, task_row_id)
+  success, result = await claim_task_reward(user_id, task_row_id)
 
-    if not success:
-        return await callback.answer(str(result), show_alert=True)
+  if not success:
+    return await callback.answer(str(result), show_alert=True)
 
-    tasks = await get_or_create_today_tasks(callback.from_user.id)
-    text = (
-        "✅ <b>Награда за задание получена!</b>\n\n"
-        f"Теперь у тебя: <b>{result}</b> 🍑\n\n"
-    )
-    text += build_tasks_text(tasks, get_hours_left_until_reset())
+  # --- ИСПРАВЛЕНИЕ НАЧИНАЕТСЯ ЗДЕСЬ ---
 
-    await safe_edit_or_send_photo(
-        message_obj=callback.message, text=text, reply_markup=get_tasks_kb(tasks)
-    )
-    await callback.answer("Награда получена!")
+  # 1. Получаем данные пользователя, чтобы знать про Ультра пасс
+  pass_user = await get_pass_user(user_id)
+  is_ultra = bool(pass_user.get("is_ultra", False))
+  tasks = await get_or_create_today_tasks(user_id)
+
+  text = (
+    "✅ <b>Награда за задание получена!</b>\n\n"
+    f"Теперь у тебя: <b>{result}</b> 🍑\n\n"
+  )
+  # 2. Передаем is_ultra в build_tasks_text
+  text += build_tasks_text(tasks, get_hours_left_until_reset(), is_ultra)
+
+  # --- ИСПРАВЛЕНИЕ ЗАКАНЧИВАЕТСЯ ЗДЕСЬ ---
+
+  await safe_edit_or_send_photo(
+    message_obj=callback.message, text=text, reply_markup=get_tasks_kb(tasks)
+  )
+  await callback.answer("Награда получена!")
+
 
 
 # Меняем cb_pass_bonus чтобы передавать is_ultra в build_bonus_text
@@ -362,33 +391,40 @@ async def cb_pass_claim(callback: types.CallbackQuery, get_user, save_db):
     user_id = callback.from_user.id
 
     pass_user = await get_pass_user(user_id)
-    claimed_levels = await get_claimed_levels(user_id)
+    claimed_levels_data = await get_claimed_levels(user_id)  # Получаем словарь
     peaches = int(pass_user.get("peaches", 0))
     is_ultra = pass_user.get("is_ultra", False)
 
-    if level in claimed_levels:
-        return await callback.answer("Награда уже получена", show_alert=True)
+    level_claims = claimed_levels_data.get(str(level), {})
 
     if peaches < get_level_required_peaches(level):
-        return await callback.answer(
-            "Ты ещё не достиг этого уровня", show_alert=True
-        )
+        return await callback.answer("Ты ещё не достиг этого уровня", show_alert=True)
 
     from .pass_data import PASS_LEVELS
-
     level_data = PASS_LEVELS.get(level, {})
-    rewards_to_give = level_data.get("rewards", {}).copy()
+    rewards_to_give = {}
 
-    # Если у пользователя Ультра, добавляем доп. награды
-    if is_ultra:
+    claimed_regular = level_claims.get("regular", False)
+    claimed_ultra = level_claims.get("ultra", False)
+
+    # Определяем, что нужно выдать
+    give_regular = not claimed_regular
+    give_ultra = is_ultra and "ultra_rewards" in level_data and not claimed_ultra
+
+    if not give_regular and not give_ultra:
+        return await callback.answer("Все доступные награды для этого уровня уже получены", show_alert=True)
+
+    # Собираем награды для выдачи
+    if give_regular:
+        rewards_to_give.update(level_data.get("rewards", {}))
+
+    if give_ultra:
         ultra_rewards = level_data.get("ultra_rewards", {})
         for emoji, amount in ultra_rewards.items():
             rewards_to_give[emoji] = rewards_to_give.get(emoji, 0) + amount
 
     if not rewards_to_give:
-        return await callback.answer(
-            "Ошибка: награды для этого уровня не найдены.", show_alert=True
-        )
+        return await callback.answer("Ошибка: награды для этого уровня не найдены.", show_alert=True)
 
     user = await get_user(user_id, callback.from_user.username)
     if not user:
@@ -412,8 +448,8 @@ async def cb_pass_claim(callback: types.CallbackQuery, get_user, save_db):
     await save_db(user_id, user)
 
     from .pass_db import claim_level
-
-    await claim_level(user_id, level)
+    # Теперь claim_level должна принимать, что именно мы забираем
+    await claim_level(user_id, level, regular=give_regular, ultra=give_ultra)
 
     text = (
         f"✅ <b>Награда за уровень {level} получена!</b>\n\n"

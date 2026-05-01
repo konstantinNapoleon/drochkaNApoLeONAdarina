@@ -128,22 +128,30 @@ async def add_peaches(user_id: int, amount: int):
     return new_peaches
 
 
-async def get_claimed_levels(user_id: int):
-    uid = str(user_id)
-
+async def get_claimed_levels(user_id: int) -> dict:
+    """
+    Получает информацию о собранных наградах пользователя.
+    Возвращает словарь: {"1": {"regular": True, "ultra": False}, ...}
+    """
     conn = get_db_connection()
-    cursor = conn.cursor()
-
+    # RealDictCursor возвращает строки в виде словарей, что очень удобно
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
     try:
         cursor.execute("""
-                SELECT level
-                FROM ivent_pass_claims
-                WHERE user_id = %s AND season_id = %s
-                ORDER BY level ASC
-            """, (uid, SEASON_ID))
+      SELECT level, claimed_regular, claimed_ultra
+      FROM ivent_pass_claims
+      WHERE user_id = %s AND season_id = %s
+    """, (user_id, SEASON_ID))
 
         rows = cursor.fetchall()
-        return [row[0] for row in rows]
+
+        claimed_data = {}
+        for row in rows:
+            claimed_data[str(row['level'])] = {
+                "regular": row['claimed_regular'],
+                "ultra": row['claimed_ultra']
+            }
+        return claimed_data
     finally:
         cursor.close()
         conn.close()
@@ -169,21 +177,39 @@ async def is_level_claimed(user_id: int, level: int):
         conn.close()
 
 
-async def claim_level(user_id: int, level: int):
-    uid = str(user_id)
-
+async def claim_level(user_id: int, level: int, regular: bool, ultra: bool):
+    """
+    Отмечает в БД, какие типы наград были получены для уровня.
+    Создает запись, если ее нет, или обновляет существующую.
+    """
     conn = get_db_connection()
     cursor = conn.cursor()
-
     try:
-        cursor.execute("""
-                INSERT INTO ivent_pass_claims (user_id, season_id, level)
-                VALUES (%s, %s, %s)
-                            ON CONFLICT (user_id, season_id, level) DO NOTHING
-        """, (uid, SEASON_ID, level))
+        # Эта конструкция (UPSERT) - самый надежный способ.
+        # 1. Пытаемся вставить новую запись.
+        # 2. Если запись для (user_id, season_id, level) уже есть, то
+        #  вместо ошибки выполняется команда UPDATE.
+
+        # Собираем часть запроса для обновления, чтобы не сбросить TRUE на FALSE
+        set_parts = []
+        if regular:
+            set_parts.append("claimed_regular = TRUE")
+        if ultra:
+            set_parts.append("claimed_ultra = TRUE")
+
+        if not set_parts:  # Если нечего забирать
+            return
+
+        set_query_part = ", ".join(set_parts)
+
+        cursor.execute(f"""
+      INSERT INTO ivent_pass_claims (user_id, season_id, level, claimed_regular, claimed_ultra)
+      VALUES (%s, %s, %s, %s, %s)
+      ON CONFLICT (user_id, season_id, level)
+      DO UPDATE SET {set_query_part}
+    """, (user_id, SEASON_ID, level, regular, ultra))
 
         conn.commit()
-        return True
     finally:
         cursor.close()
         conn.close()
