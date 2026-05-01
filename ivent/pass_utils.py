@@ -132,7 +132,7 @@ def build_stage_text(level: int, peaches: int, claimed_levels: dict, is_ultra: b
             # поэтому ее статус "получения" такой же.
             status = "✅" if level_claims.get("regular") else "❌"
             achievement_text = (
-                f"\nАчивка: {ach_info['emoji']} | {ach_info['name']} [{status}]"
+                f"\n\nАчивка: {ach_info['emoji']} | {ach_info['name']} [{status}]"
             )
     # --- КОНЕЦ НОВОГО БЛОКА ---
 
