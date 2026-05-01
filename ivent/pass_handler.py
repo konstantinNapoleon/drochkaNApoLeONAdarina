@@ -3,6 +3,7 @@ from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.exceptions import TelegramBadRequest
 from items import GAME_ITEMS # Эта строчка может уже быть в pass_utils, но здесь она тоже нужна
+from handlers.bafus import ACHIEVEMENTS_LIST
 
 
 # Импортируем нужные данные
@@ -432,23 +433,31 @@ async def cb_pass_claim(callback: types.CallbackQuery, get_user, save_db):
         return await callback.answer("Ошибка: награды для этого уровня не найдены.", show_alert=True)
 
     user = await get_user(user_id, callback.from_user.username)
-    # ... (твоя логика инвентаря остается без изменений)
-    inv = user.get("inventory")
-    if not isinstance(inv, dict):
-        user["inventory"] = {}
-        inv = user["inventory"]
-
+    inv = user.get("inventory", {})
     for emoji, amount in rewards_to_give.items():
         inv[emoji] = inv.get(emoji, 0) + amount
+    user["inventory"] = inv
+
+    # --- НОВАЯ ЛОГИКА ВЫДАЧИ АЧИВКИ ---
+    ach_id_to_give = None
+    ach_info = None
+    # Если мы выдаем обычные награды и для уровня прописана ачивка
+    if give_regular and "achievement" in level_data:
+        ach_id_to_give = level_data.get("achievement")
+        ach_info = ACHIEVEMENTS_LIST.get(ach_id_to_give)
+        if ach_info:
+            user_achievements = user.get("achievements", [])
+            if ach_id_to_give not in user_achievements:
+                user_achievements.append(ach_id_to_give)
+                user["achievements"] = user_achievements
+    # --- КОНЕЦ ЛОГИКИ ВЫДАЧИ АЧИВКИ ---
 
     await save_db(user_id, user)
 
     from .pass_db import claim_level
     await claim_level(user_id, level, regular=give_regular, ultra=give_ultra)
 
-    # --- ИЗМЕНЕНИЯ НАЧИНАЮТСЯ ЗДЕСЬ ---
-
-    # 1. Формируем красивый список наград
+    # --- ОБНОВЛЕННОЕ ФИНАЛЬНОЕ СООБЩЕНИЕ ---
     rewards_lines = []
     for emoji, amount in rewards_to_give.items():
         item_name = GAME_ITEMS.get(emoji, {}).get("name", "Неизвестный предмет")
@@ -457,20 +466,22 @@ async def cb_pass_claim(callback: types.CallbackQuery, get_user, save_db):
             line += f" x{amount}"
         rewards_lines.append(line)
 
+    # Добавляем ачивку в список выданных наград
+    if ach_info:
+        rewards_lines.append(f"— {ach_info['emoji']} Ачивка '{ach_info['name']}'")
+
     rewards_text = "\n".join(rewards_lines)
 
-    # 2. Создаем новый текст сообщения
     text = (
         f"✅ <b>Награды за уровень {level} получены!</b>\n\n"
         f"Вам было выдано:\n{rewards_text}\n\n"
         "Предметы уже в инвентаре 💜"
     )
 
-    # 3. Используем новую клавиатуру
     await safe_edit_or_send_photo(
         message_obj=callback.message,
         text=text,
-        reply_markup=get_back_to_stage_kb(level)  # <-- Используем новую функцию
+        reply_markup=get_back_to_stage_kb(level)
     )
 
     await callback.answer("Награда получена!")

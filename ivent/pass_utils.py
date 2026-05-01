@@ -4,6 +4,7 @@ import datetime
 # Убедись, что импорты соответствуют твоему проекту
 from .pass_data import PEACHES_PER_LEVEL, MAX_LEVEL, PASS_LEVELS, SEASON_END
 from items import GAME_ITEMS
+from handlers.bafus import ACHIEVEMENTS_LIST
 
 
 def get_user_level(peaches: int) -> int:
@@ -112,17 +113,28 @@ def build_stage_text(level: int, peaches: int, claimed_levels: dict, is_ultra: b
     if ultra_rewards:
         status = "✅" if level_claims.get("ultra") else "❌"
         formatted_lines = format_rewards(ultra_rewards).split('\n')
-
         if not is_ultra:
-            # Показываем замок, если нет Ультра пасса
             for line in formatted_lines:
                 all_rewards_lines.append(f"🔒 {line} [{status}]")
         else:
-            # Показываем без замка, если Ультра пасс есть
             for line in formatted_lines:
                 all_rewards_lines.append(f"{line} [{status}]")
 
     rewards_text = "\n".join(all_rewards_lines)
+
+    # --- НОВЫЙ БЛОК ДЛЯ ОТОБРАЖЕНИЯ АЧИВКИ ---
+    achievement_text = ""
+    if "achievement" in level_data:
+        ach_id = level_data["achievement"]
+        ach_info = ACHIEVEMENTS_LIST.get(ach_id)
+        if ach_info:
+            # Считаем, что ачивка выдается вместе с обычными наградами,
+            # поэтому ее статус "получения" такой же.
+            status = "✅" if level_claims.get("regular") else "❌"
+            achievement_text = (
+                f"\nАчивка: {ach_info['emoji']} | {ach_info['name']} [{status}]"
+            )
+    # --- КОНЕЦ НОВОГО БЛОКА ---
 
     status = get_level_status(peaches, level, claimed_levels, is_ultra)
     current, total = get_level_progress(peaches, level)
@@ -130,7 +142,8 @@ def build_stage_text(level: int, peaches: int, claimed_levels: dict, is_ultra: b
 
     return (
         f"📦 <b>Боевой Пропуск | Уровень {level}</b>\n\n"
-        f"<b>Награда:</b>\n{rewards_text}\n\n"
+        f"<b>Награда:</b>\n{rewards_text}"
+        f"{achievement_text}\n\n"  # <-- Добавляем текст ачивки сюда
         f"Прогресс: {bar} {current}/{total}\n\n"
         f"Статус: <b>{status}</b>"
     )

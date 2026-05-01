@@ -60,8 +60,9 @@ PASS_LEVELS = {
   },
   10: {
     "rewards": {"🍌": 1},
-    "ultra_rewards": {"👑": 1, "💰": 500000}
-  },
+    "ultra_rewards": {"👑": 1, "💰": 500000},
+    "achievement": "banana_legend"
+  }
 }
 
 DAILY_TASK_POOL = [
