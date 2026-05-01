@@ -1,7 +1,8 @@
 import math
 import datetime
 
-from ivent.pass_data import PEACHES_PER_LEVEL, MAX_LEVEL, PASS_LEVELS, SEASON_END
+# Убедись, что импорты соответствуют твоему проекту
+from .pass_data import PEACHES_PER_LEVEL, MAX_LEVEL, PASS_LEVELS, SEASON_END
 from items import GAME_ITEMS
 
 
@@ -16,11 +17,6 @@ def get_level_required_peaches(level: int) -> int:
 
 
 def get_level_progress(peaches: int, level: int):
-    """
-    Возвращает прогресс внутри конкретного уровня.
-    Например:
-    level=4 -> диапазон 451-600 при шаге 150
-    """
     if level <= 1:
         prev_required = 0
     else:
@@ -49,37 +45,35 @@ def build_progress_bar(current: int, total: int, size: int = 10) -> str:
 
 def format_rewards(rewards: dict) -> str:
     lines = []
-
     for emoji, amount in rewards.items():
         item_data = GAME_ITEMS.get(emoji, {})
         item_name = item_data.get("name", "Неизвестный предмет")
-
-        if amount == 1:
-            lines.append(f"{emoji} <b>{item_name}</b>")
-        else:
+        if amount > 1:
             lines.append(f"{emoji} <b>{item_name}</b> x{amount}")
-
+        else:
+            lines.append(f"{emoji} <b>{item_name}</b>")
     return "\n".join(lines)
 
 
+# --- ОБНОВЛЕННАЯ ЛОГИКА ---
+
 def get_level_status(peaches: int, level: int, claimed_data: dict, is_ultra: bool) -> str:
     required = get_level_required_peaches(level)
-    level_claims = claimed_data.get(str(level), {})  # Получаем статусы для этого уровня
-
-    # Проверяем, есть ли что забирать
-    can_claim_regular = not level_claims.get("regular", False)
-    can_claim_ultra = is_ultra and not level_claims.get("ultra", False)
-
-    level_data = PASS_LEVELS[level]
-    has_ultra_reward = "ultra_rewards" in level_data and level_data["ultra_rewards"]
-
-    if peaches >= required:
-        if can_claim_regular or (can_claim_ultra and has_ultra_reward):
-            return "ожидает сбор"
-        else:
-            return "получено ✅"
-    else:
+    if peaches < required:
         return "не достигнуто"
+
+    level_claims = claimed_data.get(str(level), {})
+    level_data = PASS_LEVELS[level]
+
+    # Проверяем, есть ли что-то доступное для сбора
+    can_claim_regular = not level_claims.get("regular", False)
+    has_ultra_reward = "ultra_rewards" in level_data and level_data["ultra_rewards"]
+    can_claim_ultra = is_ultra and has_ultra_reward and not level_claims.get("ultra", False)
+
+    if can_claim_regular or can_claim_ultra:
+        return "ожидает сбор"
+    else:
+        return "получено ✅"
 
 
 def get_days_left() -> int:
@@ -102,48 +96,43 @@ def get_hours_left_until_reset() -> str:
 
 def build_stage_text(level: int, peaches: int, claimed_levels: dict, is_ultra: bool) -> str:
     level_data = PASS_LEVELS[level]
-    level_claims = claimed_levels.get(str(level), {})  # Уровни в JSON могут быть строками
-
-    # 1. Форматируем награды с галочками
+    level_claims = claimed_levels.get(str(level), {})
     all_rewards_lines = []
 
     # Обычные награды
     regular_rewards = level_data.get("rewards", {})
     if regular_rewards:
-        claimed_status = "✅" if level_claims.get("regular") else "❌"
+        status = "✅" if level_claims.get("regular") else "❌"
         formatted_lines = format_rewards(regular_rewards).split('\n')
         for line in formatted_lines:
-            all_rewards_lines.append(f"{line} [{claimed_status}]")
+            all_rewards_lines.append(f"{line} [{status}]")
 
     # Ультра-награды
     ultra_rewards = level_data.get("ultra_rewards", {})
     if ultra_rewards:
-        claimed_status = "✅" if level_claims.get("ultra") else "❌"
+        status = "✅" if level_claims.get("ultra") else "❌"
+        formatted_lines = format_rewards(ultra_rewards).split('\n')
 
-        for emoji, amount in ultra_rewards.items():
-            item_data = GAME_ITEMS.get(emoji, {})
-            item_name = item_data.get("name", "Неизвестный предмет")
-
-            base_line = f"{emoji} <b>{item_name}</b>"
-            if amount > 1:
-                base_line += f" x{amount}"
-
-            if not is_ultra:
-                all_rewards_lines.append(f"🔒 {base_line} [{claimed_status}]")
-            else:
-                all_rewards_lines.append(f"{base_line} [{claimed_status}]")
+        if not is_ultra:
+            # Показываем замок, если нет Ультра пасса
+            for line in formatted_lines:
+                all_rewards_lines.append(f"🔒 {line} [{status}]")
+        else:
+            # Показываем без замка, если Ультра пасс есть
+            for line in formatted_lines:
+                all_rewards_lines.append(f"{line} [{status}]")
 
     rewards_text = "\n".join(all_rewards_lines)
 
-    # 2. Получаем статус и прогресс
     status = get_level_status(peaches, level, claimed_levels, is_ultra)
     current, total = get_level_progress(peaches, level)
     bar = build_progress_bar(current, total)
 
     return (
         f"📦 <b>Боевой Пропуск | Уровень {level}</b>\n\n"
-        f"<b>Награда:</b>\n"
-        f"{rewards_text}\n\n"
+        f"<b>Награда:</b>\n{rewards_text}\n\n"
         f"Прогресс: {bar} {current}/{total}\n\n"
         f"Статус: <b>{status}</b>"
     )
+
+
