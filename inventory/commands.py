@@ -48,7 +48,7 @@ async def cmd_inventory_grid(message: types.Message, get_user, save_db):
       all_items.append((count, emoji))
 
   if not all_items:
-    return await message.answer("🎒 Твой инвентарь пуст.")
+    return await message.reply("🎒 Твой инвентарь пуст.")
 
   # --- РЕНДЕР СЕТКИ (Твой стиль сохранился) ---
   NUM_WIDTH = 5
@@ -66,7 +66,7 @@ async def cmd_inventory_grid(message: types.Message, get_user, save_db):
 
   # <pre> — обязателен для работы выравнивания
   response = f"<pre>{html.escape(inventory_render)}</pre>"
-  await message.answer(response, parse_mode="HTML")
+  await message.reply(response, parse_mode="HTML")
 
 
 
