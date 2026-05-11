@@ -246,10 +246,15 @@ async def cb_sector_select(callback: types.CallbackQuery):
     else:
         # Переход на первый уровень выбранного сектора
         target_level = min(sector_data['levels'])
-        # "Подделываем" callback, чтобы передать управление хендлеру этапов
-        callback.data = f"pass:stages:{target_level}"
-        await cb_pass_stages(callback)
-        # Отдельный callback.answer() не нужен, он будет в cb_pass_stages
+
+        # *** ИСПРАВЛЕНИЕ ОШИБКИ 'Instance is frozen' ***
+        # Создаем изменяемую копию объекта, обновляя только поле 'data'
+        new_callback = callback.model_copy(update={'data': f"pass:stages:{target_level}"})
+
+        # Теперь передаем в обработчике эту новую, "поддельную" копию
+        await cb_pass_stages(new_callback)
+
+        # Отдельный callback.answer() здесь не нужен, так как он будет вызван внутри cb_pass_stages
 
 
 # --- ОБНОВЛЕННЫЕ ОБРАБОТЧИКИ ---
@@ -386,7 +391,7 @@ async def cb_pass_claim(callback: types.CallbackQuery, get_user, save_db):
     pass_user = await get_pass_user(user_id)
     claimed_levels_data = await get_claimed_levels(user_id)
     cherries = int(pass_user.get("cherries", 0))  # Замена на cherries
-    is_ultra = pass_user.get("is_ultra", False)
+    is_ultra = bool(pass_user.get("is_ultra", False))
 
     if cherries < get_level_required_cherries(level):
         return await callback.answer("Ты ещё не достиг этого уровня", show_alert=True)
