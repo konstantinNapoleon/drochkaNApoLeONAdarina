@@ -231,7 +231,7 @@ async def buy_confirmed(callback: types.CallbackQuery, get_user, save_db):
     # Если покупка была за 💰 и стоила больше 1000, засчитываем задание
     if currency == FARMCOIN and total_price > 1000:
         try:
-            await progress_task(user_id=callback.from_user.id, task_id="shop_buy_1000", progress=1)
+            await progress_task(user_id=callback.from_user.id, task_id="shop_buy_1000", amount=1)
         except Exception as e:
             # Если что-то пойдет не так с заданием, покупка все равно пройдет успешно
             print(f"Ошибка при обновлении задания БП 'shop_buy_1000': {e}")
