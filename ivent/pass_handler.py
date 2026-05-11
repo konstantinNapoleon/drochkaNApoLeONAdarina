@@ -40,6 +40,7 @@ from .pass_db import (
     claim_daily_bonus,
     has_claimed_daily_bonus,
     set_pass_tier,
+    set_auto_claim_status,
 )
 
 router = Router()
@@ -95,6 +96,28 @@ def get_main_pass_kb(pass_tier: int, user_level: int):
 
     return builder.as_markup()
 
+# --- НОВЫЕ ТЕКСТ И КЛАВИАТУРА ДЛЯ НАСТРОЕК ---
+
+def build_settings_text(auto_claim_enabled: bool) -> str:
+    """Создает текст для меню настроек."""
+    status = "✅ Включен" if auto_claim_enabled else "❌ Выключен"
+    return (
+        "⚙️ <b>Настройки Боевого Пропуска</b>\\n\\n"
+        "Здесь ты можешь управлять дополнительными функциями твоего премиум-пропуска.\\n\\n"
+        "<b>Авто-сбор наград за задания:</b>\\n"
+        f"— Статус: {status}\\n"
+        "— Описание: когда эта опция включена, награды за выполненные ежедневные задания будут начисляться тебе автоматически, без необходимости нажимать кнопку \\\"Забрать\\\"."
+    )
+
+def get_settings_kb(auto_claim_enabled: bool) -> types.InlineKeyboardMarkup:
+    """Создает клавиатуру для меню настроек."""
+    builder = InlineKeyboardBuilder()
+    toggle_text = "❌ Выключить авто-сбор" if auto_claim_enabled else "✅ Включить авто-сбор"
+    builder.row(types.InlineKeyboardButton(text=toggle_text, callback_data="pass:settings:toggle_autoclaim"))
+    builder.row(types.InlineKeyboardButton(text="⬅️ Назад", callback_data="pass:menu"))
+    return builder.as_markup()
+
+
 def get_sectors_kb(user_level: int):
     builder = InlineKeyboardBuilder()
     for sector_id in sorted(SECTORS.keys(), reverse=True):
@@ -148,11 +171,17 @@ def get_bonus_kb(can_claim: bool = True):
     builder.row(types.InlineKeyboardButton(text="⬅️ Назад", callback_data="pass:menu"))
     return builder.as_markup()
 
-def get_tasks_kb(tasks: list):
+def get_tasks_kb(tasks: list, pass_tier: int): # <-- Добавляем pass_tier
     builder = InlineKeyboardBuilder()
     for task in tasks:
         if task.get("is_completed") and not task.get("claimed"):
             reward = task['reward']
+            # --- Новая логика множителя ---
+            if pass_tier == PASS_TIER_ULTRA:
+                reward *= 2
+            elif pass_tier == PASS_TIER_MEGA:
+                reward *= 3
+            # ---------------------------------
             builder.row(
                 types.InlineKeyboardButton(
                     text=f"✅ Забрать {reward} {CHERRY_EMOJI}",
@@ -161,6 +190,7 @@ def get_tasks_kb(tasks: list):
             )
     builder.row(types.InlineKeyboardButton(text="⬅️ Назад", callback_data="pass:menu"))
     return builder.as_markup()
+
 
 async def safe_edit_or_send_photo(message_obj: types.Message, text: str, reply_markup):
     if message_obj.photo:
@@ -291,7 +321,7 @@ async def cb_pass_tasks(callback: types.CallbackQuery):
     pass_tier = int(pass_user.get("pass_tier", PASS_TIER_NORMAL))
     tasks = await get_or_create_today_tasks(callback.from_user.id)
     text = build_tasks_text(tasks, get_hours_left_until_reset(), pass_tier)
-    await safe_edit_or_send_photo(message_obj=callback.message, text=text, reply_markup=get_tasks_kb(tasks))
+    await safe_edit_or_send_photo(message_obj=callback.message, text=text, reply_markup=get_tasks_kb(tasks, pass_tier))
     await callback.answer()
 
 @router.callback_query(F.data.startswith("pass:task_claim:"))
@@ -306,7 +336,7 @@ async def cb_pass_task_claim(callback: types.CallbackQuery):
     tasks = await get_or_create_today_tasks(user_id)
     text = (f"✅ <b>Награда за задание получена!</b>\n\nТеперь у тебя: <b>{result}</b> {CHERRY_EMOJI}\n\n")
     text += build_tasks_text(tasks, get_hours_left_until_reset(), pass_tier)
-    await safe_edit_or_send_photo(message_obj=callback.message, text=text, reply_markup=get_tasks_kb(tasks))
+    await safe_edit_or_send_photo(message_obj=callback.message, text=text, reply_markup=get_tasks_kb(tasks, pass_tier))
     await callback.answer("Награда получена!")
 
 @router.callback_query(F.data == "pass:bonus")
@@ -371,8 +401,43 @@ async def cb_pass_buy(callback: types.CallbackQuery, get_user, save_db):
 # Новый обработчик для кнопки настроек
 @router.callback_query(F.data == "pass:settings")
 async def cb_pass_settings(callback: types.CallbackQuery):
-    # Пока просто выводим заглушку
-    await callback.answer("Раздел настроек скоро появится!", show_alert=True)
+    """Отображает меню настроек."""
+    user_id = callback.from_user.id
+    pass_user = await get_pass_user(user_id)
+
+    if pass_user.get("pass_tier", 0) == PASS_TIER_NORMAL:
+        return await callback.answer("Этот раздел доступен только для владельцев Ультра или Мега пропуска.",
+                                     show_alert=True)
+
+    auto_claim_enabled = pass_user.get("auto_claim_enabled", False)
+    text = build_settings_text(auto_claim_enabled)
+    kb = get_settings_kb(auto_claim_enabled)
+
+    await safe_edit_or_send_photo(message_obj=callback.message, text=text, reply_markup=kb)
+    await callback.answer()
+
+    @router.callback_query(F.data == "pass:settings:toggle_autoclaim")
+    async def cb_toggle_autoclaim(callback: types.CallbackQuery):
+        """Переключает статус авто-сбора."""
+        user_id = callback.from_user.id
+        pass_user = await get_pass_user(user_id)
+
+        if pass_user.get("pass_tier", 0) == PASS_TIER_NORMAL:
+            return await callback.answer("Эта функция доступна только для владельцев Ультра или Мега пропуска.",
+                                         show_alert=True)
+
+        current_status = pass_user.get("auto_claim_enabled", False)
+        new_status = not current_status
+
+        await set_auto_claim_status(user_id, new_status)
+
+        text = build_settings_text(new_status)
+        kb = get_settings_kb(new_status)
+
+        await safe_edit_or_send_photo(message_obj=callback.message, text=text, reply_markup=kb)
+        status_text = "включен" if new_status else "выключен"
+        await callback.answer(f"Авто-сбор наград {status_text}")
+
 
 @router.callback_query(F.data == "pass:info")
 async def cb_pass_info(callback: types.CallbackQuery):

@@ -1,3 +1,4 @@
+
 import random
 import datetime
 import psycopg2
@@ -8,9 +9,9 @@ from .pass_data import (
     SEASON_ID,
     DAILY_TASK_POOL,
     DAILY_TASKS_COUNT,
-    MEGA_PASS_TASKS_COUNT,  # Добавлено
-    PASS_TIER_ULTRA,  # Добавлено
-    PASS_TIER_MEGA,  # Добавлено
+    MEGA_PASS_TASKS_COUNT,
+    PASS_TIER_ULTRA,
+    PASS_TIER_MEGA,
 )
 
 DATABASE_URL = None
@@ -21,26 +22,22 @@ def setup_pass_db(database_url: str):
     global DATABASE_URL
     DATABASE_URL = database_url
 
-
 def get_db_connection():
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL не задан для ivent/pass_db.py")
     return psycopg2.connect(DATABASE_URL, sslmode="require")
 
-
 def today_date():
     return datetime.date.today()
 
 
-# --- ИЗМЕНЕННЫЕ ФУНКЦИИ ---
+# --- ОСНОВНЫЕ ФУНКЦИИ ---
 
 async def get_or_create_pass_user(user_id: int):
-    """Изменено: работает с pass_tier и auto_claim_enabled вместо is_ultra."""
     uid = str(user_id)
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        # 1. Запрашиваем новые поля pass_tier и auto_claim_enabled
         cursor.execute("""
                 SELECT user_id, season_id, cherries, pass_tier, auto_claim_enabled, bonus_last_claim_date
                 FROM ivent_pass_users
@@ -50,7 +47,6 @@ async def get_or_create_pass_user(user_id: int):
         row = cursor.fetchone()
 
         if row:
-            # 2. Возвращаем словарь с новыми полями
             return {
                 "user_id": row[0],
                 "season_id": row[1],
@@ -60,7 +56,6 @@ async def get_or_create_pass_user(user_id: int):
                 "bonus_last_claim_date": str(row[5]) if row[5] else None,
             }
 
-        # 3. При создании нового пользователя устанавливаем pass_tier=0 и auto_claim_enabled=False
         cursor.execute("""
                 INSERT INTO ivent_pass_users (user_id, season_id, cherries, pass_tier, auto_claim_enabled, bonus_last_claim_date)
                 VALUES (%s, %s, %s, %s, %s, %s)
@@ -69,7 +64,6 @@ async def get_or_create_pass_user(user_id: int):
         row = cursor.fetchone()
         conn.commit()
 
-        # 4. Возвращаем новый словарь
         return {
             "user_id": row[0],
             "season_id": row[1],
@@ -84,15 +78,11 @@ async def get_or_create_pass_user(user_id: int):
 
 
 async def get_pass_user(user_id: int):
-    """Без изменений"""
     return await get_or_create_pass_user(user_id)
 
 
 async def update_pass_user(user_id: int, updates: dict):
-    """Изменено: Добавлены новые поля в список разрешенных."""
     uid = str(user_id)
-
-    # Добавляем 'pass_tier' и 'auto_claim_enabled', убираем 'is_ultra'
     allowed_fields = {
         "cherries",
         "pass_tier",
@@ -129,8 +119,14 @@ async def update_pass_user(user_id: int, updates: dict):
         conn.close()
 
 
+# --- НОВАЯ ФУНКЦИЯ ДЛЯ НАСТРОЕК ---
+async def set_auto_claim_status(user_id: int, status: bool):
+    """Включает или выключает авто-сбор наград для пользователя."""
+    await update_pass_user(user_id, {"auto_claim_enabled": status})
+    return True
+
+
 async def add_cherries(user_id: int, amount: int):
-    """Без изменений на этом этапе"""
     user = await get_pass_user(user_id)
     new_cherries = int(user.get("cherries", 0)) + int(amount)
     await update_pass_user(user_id, {"cherries": new_cherries})
@@ -138,7 +134,6 @@ async def add_cherries(user_id: int, amount: int):
 
 
 async def get_claimed_levels(user_id: int) -> dict:
-    """Без изменений"""
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     try:
@@ -161,7 +156,6 @@ async def get_claimed_levels(user_id: int) -> dict:
 
 
 async def claim_level(user_id: int, level: int, regular: bool, ultra: bool):
-    """Без изменений"""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
@@ -186,7 +180,6 @@ async def claim_level(user_id: int, level: int, regular: bool, ultra: bool):
 
 
 async def get_today_tasks(user_id: int):
-    """Без изменений"""
     uid = str(user_id)
     today = today_date()
     conn = get_db_connection()
@@ -212,7 +205,6 @@ async def get_today_tasks(user_id: int):
 
 
 async def create_daily_tasks(user_id: int, tasks_count: int):
-    """Изменено: Принимает количество заданий для создания."""
     uid = str(user_id)
     today = today_date()
     selected_tasks = random.sample(DAILY_TASK_POOL, tasks_count)
@@ -232,23 +224,19 @@ async def create_daily_tasks(user_id: int, tasks_count: int):
 
 
 async def get_or_create_today_tasks(user_id: int):
-    """Изменено: Определяет, сколько заданий нужно создать, в зависимости от pass_tier."""
     tasks = await get_today_tasks(user_id)
     if tasks:
         return tasks
 
-    # Получаем pass_tier пользователя
     user = await get_pass_user(user_id)
     pass_tier = user.get("pass_tier", 0)
 
-    # Определяем, сколько заданий создать
     tasks_to_create = MEGA_PASS_TASKS_COUNT if pass_tier == PASS_TIER_MEGA else DAILY_TASKS_COUNT
 
     return await create_daily_tasks(user_id, tasks_to_create)
 
 
 async def update_task_progress(task_row_id: int, progress: int, is_completed: bool):
-    """Без изменений"""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
@@ -263,8 +251,6 @@ async def update_task_progress(task_row_id: int, progress: int, is_completed: bo
 
 
 async def claim_daily_bonus(user_id: int):
-    """Изменено: Логика бонуса теперь зависит от pass_tier."""
-    # Импортируем все нужные константы
     from .pass_data import DAILY_BONUS_REWARD, ULTRA_PASS_DAILY_BONUS, MEGA_PASS_DAILY_BONUS
 
     user = await get_pass_user(user_id)
@@ -273,7 +259,6 @@ async def claim_daily_bonus(user_id: int):
     if last_claim == str(today):
         return False, 0, user.get("cherries", 0)
 
-    # Новая логика расчета бонуса
     bonus_to_add = DAILY_BONUS_REWARD
     pass_tier = user.get("pass_tier", 0)
     if pass_tier == PASS_TIER_ULTRA:
@@ -290,12 +275,10 @@ async def claim_daily_bonus(user_id: int):
 
 
 async def has_claimed_daily_bonus(user_id: int):
-    """Без изменений"""
     user = await get_pass_user(user_id)
     return user.get("bonus_last_claim_date") == str(today_date())
 
 
 async def set_pass_tier(user_id: int, tier: int):
-    """Новая функция вместо set_ultra_pass. Устанавливает уровень пропуска."""
     await update_pass_user(user_id, {"pass_tier": tier})
     return True
