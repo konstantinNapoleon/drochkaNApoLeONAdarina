@@ -347,12 +347,12 @@ async def process_droch(message: types.Message, get_user, save_db):
     if dispenser_triggered:
         reply_text = f"Ты успешно вздрочнул! 😼\nНа твоем счету <b>{chat_stats['masturbations_count']}</b> вздрочки.{drop_info_text}\n\n🚰 Дозатор спрея сработал и теперь можешь дрочить ещё раз!"
         await message.reply(reply_text, parse_mode="HTML")
-        await progress_task(message.from_user.id, "mast_250", 1)
+        await progress_task(message.from_user.id, "mast_20", 1)
     else:
         reply_text = f"Ты успешно вздрочнул! 😼\nНа твоем счету <b>{chat_stats['masturbations_count']}</b> вздрочки.{drop_info_text}"
         await message.reply(reply_text, reply_markup=get_spray_markup(inv.get("💦", 0), message.from_user.id),
                             parse_mode="HTML")
-        await progress_task(message.from_user.id, "mast_250", 1)
+        await progress_task(message.from_user.id, "mast_20", 1)
 
 
 # --- ЭТАП 1: ПОКУПКА ПРЕДМЕТА "НА ЛЕТУ" ---
