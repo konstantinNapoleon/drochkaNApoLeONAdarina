@@ -40,6 +40,7 @@ from .pass_db import (
 )
 
 router = Router()
+PREVIEW_MODE_CACHE = {} # <-- ДОБАВЬ ЭТУ СТРОЧКУ
 
 PHOTO_URL = "https://i.yapx.ru/dezXF.jpg"  # Можешь поменять на фото нового сезона
 ALLOWED_CHAT_ID = -1003858938513  # ID чата для задания с сообщениями
@@ -54,7 +55,7 @@ def get_main_pass_kb(is_ultra: bool, user_level: int):
 
     builder.row(
         types.InlineKeyboardButton(
-            text="🧩 Этапы", callback_data=f"pass:stages:{stage_to_open}")
+            text="🧩 Этапы", callback_data="pass:show_stages")
     )
     # Новая кнопка для навигации по секторам
     builder.row(
@@ -227,10 +228,16 @@ async def cb_sectors_menu(callback: types.CallbackQuery):
 
 @router.callback_query(F.data.startswith("pass:sector_select:"))
 async def cb_sector_select(callback: types.CallbackQuery):
-    """Обрабатывает выбор сектора. Перенаправляет на этап или показывает превью."""
+    """
+    Обрабатывает выбор сектора.
+    - 🔒: Включает предпросмотр.
+    - ❌: Сообщает о возвращении в текущую главу и переходит.
+    - ✅: Молча переходит в пройденную главу.
+    """
     sector_id = callback.data.split(":")[2]
+    user_id = callback.from_user.id
 
-    pass_user = await get_pass_user(callback.from_user.id)
+    pass_user = await get_pass_user(user_id)
     cherries = int(pass_user.get("cherries", 0))
     user_level = get_user_level(cherries)
 
@@ -238,18 +245,66 @@ async def cb_sector_select(callback: types.CallbackQuery):
     sector_data = SECTORS[sector_id]
 
     if status == "🔒":
-        text = f"🔐 <b>Предпросмотр Сектора {sector_id}</b>\n\nЭтот сектор пока заблокирован. Завершите предыдущий сектор, чтобы получить доступ."
-        await callback.answer(f"Сектор {sector_id} заблокирован", show_alert=True)
-        # Оставляем пользователя в том же меню
-        kb = get_sectors_kb(user_level)
-        await safe_edit_or_send_photo(message_obj=callback.message, text=text, reply_markup=kb)
+        # Сценарий 1: Сектор ЗАБЛОКИРОВАН
+        # режим предпросмотра и возвращаем в главное меню
+        PREVIEW_MODE_CACHE[user_id] = sector_id
+
+        text = (
+            f"🔐 <b>Предпросмотр Сектора {sector_id} активирован!</b>\n\n"
+            "Теперь, нажав кнопку 'Этапы' в главном меню, "
+            "ты увидишь уровни и награды этого сектора."
+        )
+
+        await safe_edit_or_send_photo(
+            message_obj=callback.message,
+            text=text,
+            reply_markup=get_main_pass_kb(pass_user.get("is_ultra"), user_level)
+        )
+        await callback.answer("Режим предпросмотра активирован!")
+
     else:
-        # Переход на первый уровень выбранного сектора
+        # Сценарий 2: Сектор ОТКРЫТ ('❌' или '✅')
+
+        if status == '❌':
+            # Если это ТЕКУЩИЙ сектор, показываем специальное сообщение.
+            await callback.answer("Вы вернулись в свою главу прохождения", show_alert=False)
+        else:  # (status == '✅')
+            # Если это ПРОЙДЕННЫЙ сектор, просто молча отвечаем.
+            await callback.answer()
+
+        # Общая логика для всех открытых секторов: переходим на его первый уровень.
         target_level = min(sector_data['levels'])
-        # "Подделываем" callback, чтобы передать управление хендлеру этапов
-        callback.data = f"pass:stages:{target_level}"
-        await cb_pass_stages(callback)
-        # Отдельный callback.answer() не нужен, он будет в cb_pass_stages
+        new_callback = callback.model_copy(update={'data': f"pass:stages:{target_level}"})
+        await cb_pass_stages(new_callback)
+
+
+@router.callback_query(F.data == "pass:show_stages")
+async def cb_show_stages(callback: types.CallbackQuery):
+    """
+    Обработчик для главной кнопки 'Этапы'.
+    Проверяет, есть ли пользователь в кэше предпросмотра.
+    """
+    user_id = callback.from_user.id
+
+    # target_level = 0  <-- УБИРАЕМ ЭТУ СТРОКУ
+
+    if user_id in PREVIEW_MODE_CACHE:
+        sector_id = PREVIEW_MODE_CACHE[user_id]
+        sector_data = SECTORS[sector_id]
+        target_level = min(sector_data['levels'])
+
+        del PREVIEW_MODE_CACHE[user_id]
+
+        await callback.answer(f"Предпросмотр сектора {sector_id}...")
+    else:
+        pass_user = await get_pass_user(user_id)
+        cherries = int(pass_user.get("cherries", 0))
+        user_level = get_user_level(cherries)
+        target_level = max(1, user_level)
+        await callback.answer()
+
+    new_callback = callback.model_copy(update={'data': f"pass:stages:{target_level}"})
+    await cb_pass_stages(new_callback)
 
 
 # --- ОБНОВЛЕННЫЕ ОБРАБОТЧИКИ ---

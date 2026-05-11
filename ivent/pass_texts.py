@@ -15,15 +15,17 @@ from ivent.pass_data import (
 
 # Новая вспомогательная функция для определения сектора пользователя по его уровню
 def get_sector_name(user_level: int) -> str:
-  """Определяет название сектора по уровню пользователя."""
-  if user_level == 0:
-    return "Не определена"
-  for sector_id, sector_data in SECTORS.items():
-    if user_level in sector_data['levels']:
+  """Определяет название сектора по уровню пользователя (исправленная версия)."""
+  # Итерация от высших секторов к низшим (A -> D) для правильного определения
+  for sector_id in sorted(SECTORS.keys(), reverse=True):
+    sector_data = SECTORS[sector_id]
+    # Проверяем, достиг ли уровень пользователя порога для разблокировки этого сектора
+    if user_level >= sector_data['unlocks_at']:
+      # Если да - это наш текущий сектор, выходим из цикла
       return f"{sector_id}: {sector_data['name']}"
-  # Если уровень пользователя больше максимального, он в последнем секторе
-  if user_level >= max(SECTORS['A']['levels']):
-    return f"A: {SECTORS['A']['name']}"
+
+  # Эта строка не должна никогда вызываться при правильной настройке SECTORS,
+  # но она нужна как запасной вариант.
   return "Неизвестно"
 
 # Обновленный текст главного меню

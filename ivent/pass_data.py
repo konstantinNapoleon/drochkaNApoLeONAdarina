@@ -2,7 +2,7 @@ import datetime
 
 
 SEASON_ID = "s2_sects"
-SEASON_TITLE = "ДРОЧ ПАСС"
+SEASON_TITLE = "ДРОЧ ПАСС | ВИШНЕВЫЙ ПАРАДОКС"
 SEASON_DESCRIPTION = "Новый сезон с разделением на секты. Докажи, что ты можешь пройти их все."
 # Устанавливаем конец сезона через 30 дней от текущей даты
 SEASON_END = datetime.datetime.now() + datetime.timedelta(days=30)
