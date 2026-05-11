@@ -148,8 +148,8 @@ async def process_ttt_move(callback: types.CallbackQuery, get_user, save_db):
 
         # Засчитываем задание Боевого Пропуска обоим игрокам
         try:
-            await progress_task(user_id=game['host'], task_id="ttt_1", progress=1)
-            await progress_task(user_id=game['opponent'], task_id="ttt_1", progress=1)
+            await progress_task(user_id=game['host'], task_id="ttt_1", amount=1)
+            await progress_task(user_id=game['opponent'], task_id="ttt_1", amount=1)
         except Exception as e:
             # Если что-то пойдет не так с БП, игра все равно завершится корректно
             print(f"Ошибка при обновлении задания БП 'ttt_1': {e}")
