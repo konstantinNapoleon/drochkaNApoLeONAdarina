@@ -15,7 +15,7 @@ ULTRA_PASS_COST = 500 # Стоимость можно оставить преж�
 
 # --- СТРУКТУРА СЕКТОРОВ ---
 SECTORS = {
-  'D': {'name': 'Новичок', 'levels': range(1, 11), 'unlocks_at': 1},
+  'D': {'name': 'Новичок', 'levels': range(1, 11), 'unlocks_at': 0},
   'C': {'name': 'Начинающий', 'levels': range(11, 21), 'unlocks_at': 10},
   'B': {'name': 'Продвинутый', 'levels': range(21, 31), 'unlocks_at': 20},
   'A': {'name': 'Легенда', 'levels': range(31, 41), 'unlocks_at': 30},
