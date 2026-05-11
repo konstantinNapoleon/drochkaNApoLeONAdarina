@@ -1,4 +1,4 @@
-from .pass_db import get_or_create_today_tasks, update_task_progress, add_peaches, get_pass_user
+from .pass_db import get_or_create_today_tasks, update_task_progress, add_cherries, get_pass_user
 
 
 async def progress_task(user_id: int, task_id: str, amount: int = 1):
@@ -99,6 +99,6 @@ async def claim_task_reward(user_id: int, task_row_id: int):
   if is_ultra:
     reward *= 2
 
-  new_peaches = await add_peaches(user_id, reward)
+  new_peaches = await add_cherries(user_id, reward)
 
   return True, new_peaches
