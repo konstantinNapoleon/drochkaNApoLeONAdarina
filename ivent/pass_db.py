@@ -36,7 +36,7 @@ async def get_or_create_pass_user(user_id: int):
 
     try:
         cursor.execute("""
-                SELECT user_id, season_id, peaches, is_ultra, bonus_last_claim_date
+                SELECT user_id, season_id, cherries, is_ultra, bonus_last_claim_date
                 FROM ivent_pass_users
                 WHERE user_id = %s AND season_id = %s
                 LIMIT 1
@@ -48,17 +48,17 @@ async def get_or_create_pass_user(user_id: int):
             return {
                 "user_id": row[0],
                 "season_id": row[1],
-                "peaches": row[2],
+                "cherries": row[2],
                 "is_ultra": row[3],
                 "bonus_last_claim_date": str(row[4]) if row[4] else None,
             }
 
         cursor.execute("""
                 INSERT INTO ivent_pass_users (
-                    user_id, season_id, peaches, is_ultra, bonus_last_claim_date
+                    user_id, season_id, cherries, is_ultra, bonus_last_claim_date
                 )
                 VALUES (%s, %s, %s, %s, %s)
-                RETURNING user_id, season_id, peaches, is_ultra, bonus_last_claim_date
+                RETURNING user_id, season_id, cherries, is_ultra, bonus_last_claim_date
             """, (uid, SEASON_ID, 0, False, None))
 
         row = cursor.fetchone()
@@ -67,7 +67,7 @@ async def get_or_create_pass_user(user_id: int):
         return {
             "user_id": row[0],
             "season_id": row[1],
-            "peaches": row[2],
+            "cherries": row[2],
             "is_ultra": row[3],
             "bonus_last_claim_date": str(row[4]) if row[4] else None,
         }
@@ -85,7 +85,7 @@ async def update_pass_user(user_id: int, updates: dict):
     uid = str(user_id)
 
     allowed_fields = {
-        "peaches",
+        "cherries",
         "is_ultra",
         "bonus_last_claim_date",
     }
@@ -122,11 +122,11 @@ async def update_pass_user(user_id: int, updates: dict):
         conn.close()
 
 
-async def add_peaches(user_id: int, amount: int):
+async def add_cherries(user_id: int, amount: int):
     user = await get_pass_user(user_id)
-    new_peaches = int(user.get("peaches", 0)) + int(amount)
-    await update_pass_user(user_id, {"peaches": new_peaches})
-    return new_peaches
+    new_cherries = int(user.get("cherries", 0)) + int(amount)
+    await update_pass_user(user_id, {"cherries": new_cherries})
+    return new_cherries
 
 
 async def get_claimed_levels(user_id: int) -> dict:
@@ -304,20 +304,20 @@ async def claim_daily_bonus(user_id: int):
 
     last_claim = user.get("bonus_last_claim_date")
     if last_claim == str(today):
-        return False, 0, user.get("peaches", 0)
+        return False, 0, user.get("cherries", 0)
 
     bonus_to_add = DAILY_BONUS_REWARD
     if user.get("is_ultra"):
         bonus_to_add += ULTRA_PASS_DAILY_BONUS
 
-    new_peaches = int(user.get("peaches", 0)) + bonus_to_add
+    new_cherries = int(user.get("cherries", 0)) + bonus_to_add
 
     await update_pass_user(user_id, {
-        "peaches": new_peaches,
+        "cherries": new_cherries,
         "bonus_last_claim_date": today
     })
 
-    return True, bonus_to_add, new_peaches
+    return True, bonus_to_add, new_cherries
 
 
 async def has_claimed_daily_bonus(user_id: int):
@@ -328,4 +328,3 @@ async def has_claimed_daily_bonus(user_id: int):
 async def set_ultra_pass(user_id: int, value: bool = True):
     await update_pass_user(user_id, {"is_ultra": value})
     return True
-

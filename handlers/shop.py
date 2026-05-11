@@ -5,6 +5,7 @@ from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from items import GAME_ITEMS
+from ivent.pass_tasks import progress_task # <-- ДОБАВЬ ЭТУ СТРОКУ
 
 router = Router()
 ITEMS_PER_PAGE = 10
@@ -29,7 +30,7 @@ def ensure_inv_dict(user) -> dict:
 
 
 def get_farmcoins(user) -> int:
-    """Просто берет число из словаря"""
+    """Просто берет из словаря"""
     inv = ensure_inv_dict(user)
     return inv.get(FARMCOIN, 0)
 
@@ -46,7 +47,7 @@ def spend_farmcoins(user, amount: int) -> bool:
     inv[FARMCOIN] = current - amount
     return True
 
-# Дополнительная функция для новой валюты
+# дополнительная функция для новой валюты
 def get_balance(user, currency: str) -> int:
     inv = ensure_inv_dict(user)
     return inv.get(currency, 0)
@@ -224,6 +225,18 @@ async def buy_confirmed(callback: types.CallbackQuery, get_user, save_db):
     if not spend_currency(user, currency, total_price):
         have = get_balance(user, currency)
         return await callback.answer(f"❌ У тебя {have:,} {currency}. Не хватает {total_price - have:,} {currency}", show_alert=True)
+
+    # 👇 --- ВОТ СЮДА НУЖНО ВСТАВИТЬ КОД --- 👇
+
+    # Если покупка была за 💰 и стоила больше 1000, засчитываем задание
+    if currency == FARMCOIN and total_price > 1000:
+        try:
+            await progress_task(user_id=callback.from_user.id, task_id="shop_buy_1000", progress=1)
+        except Exception as e:
+            # Если что-то пойдет не так с заданием, покупка все равно пройдет успешно
+            print(f"Ошибка при обновлении задания БП 'shop_buy_1000': {e}")
+
+    # 👆 --- КОНЕЦ ВСТАВКИ --- 👆
 
     # Выдача предмета
     add_item_to_inv(user, item_emoji, amount)

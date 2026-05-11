@@ -3,7 +3,7 @@ import random
 from aiogram import Router, F, types
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-
+from ivent.pass_tasks import progress_task # <-- ДОБАВЬ ЭТУ СТРОКУ
 router = Router()
 
 ACTIVE_GAMES = {}
@@ -143,6 +143,18 @@ async def process_ttt_move(callback: types.CallbackQuery, get_user, save_db):
 
     if winner:
         # --- ФИНАЛ ИГРЫ ---
+
+        # 👇 --- ВОТ СЮДА НУЖНО ВСТАВИТЬ КОД --- 👇
+
+        # Засчитываем задание Боевого Пропуска обоим игрокам
+        try:
+            await progress_task(user_id=game['host'], task_id="ttt_1", progress=1)
+            await progress_task(user_id=game['opponent'], task_id="ttt_1", progress=1)
+        except Exception as e:
+            # Если что-то пойдет не так с БП, игра все равно завершится корректно
+            print(f"Ошибка при обновлении задания БП 'ttt_1': {e}")
+
+        # 👆 --- КОНЕЦ ВСТАВКИ --- 👆
         if winner == "draw":
             res_text = "<b>Ничья!</b> 💰 остались при своих."
         else:
