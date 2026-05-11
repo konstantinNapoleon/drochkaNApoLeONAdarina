@@ -1,36 +1,46 @@
+
 # pass_texts.py
 
-# Импортируем все необходимые переменные из твоей новой конфигурации
-from ivent.pass_data import (
+# --- ОБНОВЛЕННЫЕ ИМПОРТЫ ---
+from .pass_data import (
   SEASON_TITLE,
   SEASON_DESCRIPTION,
-  ULTRA_PASS_DAILY_BONUS,
-  ULTRA_PASS_COST,
-  DAILY_BONUS_REWARD,
+  # Константы для всех уровней пропуска
+  PASS_TIER_ULTRA, PASS_TIER_MEGA,
+  # Стоимости
+  ULTRA_PASS_COST, MEGA_PASS_COST,
+  # Бонусы
+  DAILY_BONUS_REWARD, ULTRA_PASS_DAILY_BONUS, MEGA_PASS_DAILY_BONUS,
+  # Задания
+  DAILY_TASKS_COUNT, MEGA_PASS_TASKS_COUNT,
+  # Прочее
   SECTORS,
   MAX_LEVEL,
   CHERRIES_PER_LEVEL,
   CHERRY_EMOJI,
+  CHERRY_TO_FRAG_RATE
 )
 
-# Новая вспомогательная функция для определения сектора пользователя по его уровню
+# --- Твоя функция определения сектора (без изменений) ---
 def get_sector_name(user_level: int) -> str:
-  """Определяет название сектора по уровню пользователя (исправленная версия)."""
-  # Итерация от высших секторов к низшим (A -> D) для правильного определения
   for sector_id in sorted(SECTORS.keys(), reverse=True):
     sector_data = SECTORS[sector_id]
-    # Проверяем, достиг ли уровень пользователя порога для разблокировки этого сектора
     if user_level >= sector_data['unlocks_at']:
-      # Если да - это наш текущий сектор, выходим из цикла
       return f"{sector_id}: {sector_data['name']}"
-
-  # Эта строка не должна никогда вызываться при правильной настройке SECTORS,
-  # но она нужна как запасной вариант.
   return "Неизвестно"
 
-# Обновленный текст главного меню
-def build_main_menu_text(user_level: int, is_ultra: bool, days_left: int) -> str:
-  pass_type = "Ультра" if is_ultra else "Обычный"
+
+# --- ОБНОВЛЕННЫЕ ФУНКЦИИ ГЕНЕРАЦИИ ТЕКСТА ---
+
+def build_main_menu_text(user_level: int, pass_tier: int, days_left: int) -> str:
+  """Изменено: Отображает правильный тип пропуска (Обычный, Ультра, Мега)."""
+  if pass_tier == PASS_TIER_MEGA:
+    pass_type = "💎 Мега"
+  elif pass_tier == PASS_TIER_ULTRA:
+    pass_type = "💠 Ультра"
+  else:
+    pass_type = "Обычный"
+
   sector_name = get_sector_name(user_level)
 
   return (
@@ -42,8 +52,8 @@ def build_main_menu_text(user_level: int, is_ultra: bool, days_left: int) -> str
     f"{SEASON_DESCRIPTION}"
   )
 
-# Обновленный текст заданий (замена эмодзи)
-def build_tasks_text(tasks: list, hours_left_text: str, is_ultra: bool) -> str:
+def build_tasks_text(tasks: list, hours_left_text: str, pass_tier: int) -> str:
+  """Изменено: Применяет множитель x2 для Ультра и x3 для Мега."""
   lines = ["📋 <b>Текущие ежедневные задания:</b>\n"]
 
   for idx, task in enumerate(tasks, start=1):
@@ -58,8 +68,11 @@ def build_tasks_text(tasks: list, hours_left_text: str, is_ultra: bool) -> str:
     target = task.get("target", 1)
     reward = task.get("reward", 0)
 
-    if is_ultra:
+    # Новая логика множителей
+    if pass_tier == PASS_TIER_ULTRA:
       reward *= 2
+    elif pass_tier == PASS_TIER_MEGA:
+      reward *= 3
 
     lines.append(
       f"[{idx}] {task['text']} ({status})\n"
@@ -70,8 +83,8 @@ def build_tasks_text(tasks: list, hours_left_text: str, is_ultra: bool) -> str:
   lines.append(f"Обновление через {hours_left_text}")
   return "\n".join(lines)
 
-# Обновленный текст бонуса (замена эмодзи и значений)
-def build_bonus_text(already_claimed: bool, is_ultra: bool) -> str:
+def build_bonus_text(already_claimed: bool, pass_tier: int) -> str:
+  """Изменено: Показывает правильный бонус для Ультра и Мега."""
   if already_claimed:
     return (
       "🎁 <b>Ежедневный бонус</b>\n\n"
@@ -80,8 +93,11 @@ def build_bonus_text(already_claimed: bool, is_ultra: bool) -> str:
     )
 
   bonus_text = f"<b>{DAILY_BONUS_REWARD}</b> {CHERRY_EMOJI}"
-  if is_ultra:
-    bonus_text += f" (+{ULTRA_PASS_DAILY_BONUS} {CHERRY_EMOJI} за Ультра пропуск)"
+  # Новая логика отображения бонуса
+  if pass_tier == PASS_TIER_ULTRA:
+    bonus_text += f" (+{ULTRA_PASS_DAILY_BONUS} {CHERRY_EMOJI} за Ультра)"
+  elif pass_tier == PASS_TIER_MEGA:
+    bonus_text += f" (+{MEGA_PASS_DAILY_BONUS} {CHERRY_EMOJI} за Мега)"
 
   return (
     "🎁 <b>Ежедневный бонус</b>\n\n"
@@ -89,18 +105,26 @@ def build_bonus_text(already_claimed: bool, is_ultra: bool) -> str:
     f"{bonus_text}"
   )
 
-# Полностью переписанный текст информации
 def build_info_text() -> str:
+  """Полностью переписан для отображения информации о всех трех пропусках."""
   return (
-    "ℹ️ <b>Информация о пропуске</b>\n\n"
+    f"ℹ️ <b>Информация о пропуске</b>\n\n"
+    f"<b>Общие сведения:</b>\n"
     f"— За каждый этап нужно {CHERRIES_PER_LEVEL} {CHERRY_EMOJI}\n"
-    f"— Всего в сезоне {MAX_LEVEL} этапов, разделенных на 4 сектора\n"
-    "— Каждый день выдается 3 случайных задания\n"
-    f"— Также доступен ежедневный бонус {DAILY_BONUS_REWARD} {CHERRY_EMOJI}\n\n"
-    "💠 <b>Преимущества Ультра пропуска:</b>\n"
-    f"— Стоимость: {ULTRA_PASS_COST} 🪙\n"
-    f"— В 2 раза больше {CHERRY_EMOJI} за ежедневные задания\n"
-    f"— Дополнительный ежедневный бонус: +{ULTRA_PASS_DAILY_BONUS} {CHERRY_EMOJI}\n"
-    "— Эксклюзивные награды за каждый этап"
+    f"— Всего в сезоне {MAX_LEVEL - 10} основных этапов + 10 бонусных\n"
+    f"— Ежедневный бонус: <b>{DAILY_BONUS_REWARD}</b> {CHERRY_EMOJI}\n"
+    f"— Ежедневных заданий: <b>{DAILY_TASKS_COUNT}</b>\n\n"
+    f"<tg-spoiler>"
+    f"💠 <b>Преимущества Ультра ({ULTRA_PASS_COST} 🪙):</b>\n"
+    f"— Награды за задания: <b>x2</b>\n"
+    f"— Доп. бонус: <b>+{ULTRA_PASS_DAILY_BONUS}</b> {CHERRY_EMOJI}\n"
+    f"— Доступ к Ультра-наградам за этапы\n\n"
+    f"💎 <b>Преимущества Мега ({MEGA_PASS_COST} 🪙):</b>\n"
+    f"— Награды за задания: <b>x3</b>\n"
+    f"— Доп. бонус: <b>+{MEGA_PASS_DAILY_BONUS}</b> {CHERRY_EMOJI}\n"
+    f"— Доп. ежедневное задание (всего {MEGA_PASS_TASKS_COUNT})\n"
+    f"— Доступ к <b>+10 бонусным этапам</b> (41-50)\n"
+    f"— Обмен {CHERRY_EMOJI} на 🪙 после 50-го уровня (1 к {CHERRY_TO_FRAG_RATE})\n"
+    f"— Функция авто-сбора наград (скоро)\n"
+    f"</tg-spoiler>"
   )
-
