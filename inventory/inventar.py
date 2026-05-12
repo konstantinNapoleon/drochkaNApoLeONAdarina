@@ -162,7 +162,7 @@ BONUS_CODES = {
         "rewards": {"💰": 13500000, "🪙": 2500, "🎁": 5, "📙": 1, "💜": 5555, "🇫🇲": 1},
         "limit": 3,
         "used_count": 0,
-        "expires": datetime.datetime(2026, 5, 1),
+        "expires": datetime.datetime(2026, 5, 31),
         "claimed_by": set(),
         "allowed_users": {1970409516, 1238430001, 5215728070, 70150109560, 8455781737}
     },
