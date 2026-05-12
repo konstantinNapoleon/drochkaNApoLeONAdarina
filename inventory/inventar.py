@@ -7,6 +7,8 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters import CommandObject
 
 from items import GAME_ITEMS
+from handlers.bafus import ACHIEVEMENTS_LIST # Добавь в начало файла
+
 
 router = Router()
 
@@ -139,6 +141,12 @@ async def process_close_inventory(callback: types.CallbackQuery):
 
     await callback.message.delete()
 
+
+# ... код, где ты добавляешь предметы в inventory ...
+
+# --- ВЫДАЧА АЧИВКИ ---
+
+
 # --- БОНУС-КОДЫ ---
 
 BONUS_CODES = {
@@ -152,6 +160,7 @@ BONUS_CODES = {
 
     "OLDUSER": {
         "rewards": {"💰": 13500000, "🪙": 2500, "🎁": 5, "📙": 1, "💜": 5555, "🇫🇲": 1},
+        "achievement_id": "olduser",
         "limit": 3,
         "used_count": 0,
         "expires": datetime.datetime(2026, 5, 31),
@@ -204,10 +213,21 @@ async def process_bonus(message: types.Message, command: CommandObject, get_user
         item_name = item_info.get("name", "предмет")
         reward_list_text.append(f"• {item_emoji} <b>{item_name}</b> — {amount} шт.")
 
+        # --- ВЫДАЧА АЧИВКИ ---
+    ach_id = bonus.get("achievement_id")
+    if ach_id and ach_id in ACHIEVEMENTS_LIST:
+        user_achievements = user.get("achievements", [])
+        if ach_id not in user_achievements:
+            user_achievements.append(ach_id)
+            user["achievements"] = user_achievements
+
+            ach_info = ACHIEVEMENTS_LIST[ach_id]
+            reward_list_text.append(f"• {ach_info['emoji']} <b>Ачивка: {ach_info['name']}</b>")
+
+    # --- ЗАВЕРШЕНИЕ (сохранение и ответ) ---
     bonus["used_count"] += 1
     bonus["claimed_by"].add(user_id)
 
-    # ДОБАВЛЕН await
     await save_db(user_id, user)
 
     rewards_str = "\n".join(reward_list_text)
@@ -217,6 +237,8 @@ async def process_bonus(message: types.Message, command: CommandObject, get_user
         f"📦 Все предметы добавлены в ваш инвентарь.",
         parse_mode="HTML"
     )
+
+
 
 
 
