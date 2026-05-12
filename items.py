@@ -596,6 +596,21 @@ GAME_ITEMS = {
         "price": 0,
         "emoji": "🐔"
     },
+
+    "📙": {
+        "name": "Наследие Олда",
+        "description": "Тот кто прошел настоящий путь Олда",
+        "price": 0,
+        "emoji": "📙"
+    },
+
+    "🇫🇲": {
+        "name": "Old's drochs",
+        "description": "Для олдов ФармДроча",
+        "price": 0,
+        "emoji": "🇫🇲"
+    },
+
     "🚗": {
         "name": "Супер-car",
         "description": "Давно тебя не было в уличных гонках!",

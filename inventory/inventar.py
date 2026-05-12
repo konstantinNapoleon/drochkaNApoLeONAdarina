@@ -142,7 +142,7 @@ async def process_close_inventory(callback: types.CallbackQuery):
 # --- БОНУС-КОДЫ ---
 
 BONUS_CODES = {
-  "ВОЗРОЖДЕНИЕ": {
+  "NOW": {
     "rewards": {"💰": 8700, "🏆": 1, "🧢": 1},
     "limit": 1000,
     "used_count": 0,
@@ -150,7 +150,7 @@ BONUS_CODES = {
     "claimed_by": set()
   },
 
-    "SEASON1-PROPUSK": {
+    "NOE": {
         "rewards": {"🪙": 500},
         "limit": 3,
         "used_count": 0,
@@ -158,7 +158,16 @@ BONUS_CODES = {
         "claimed_by": set()
     },
 
-  "ТЕХНЕПОЛАДКИ": {
+    "OLDUSER": {
+        "rewards": {"💰": 13500000, "🪙": 2500, "🎁": 5, "📙": 1, "💜": 5555, "🇫🇲": 1},
+        "limit": 3,
+        "used_count": 0,
+        "expires": datetime.datetime(2026, 5, 1),
+        "claimed_by": set(),
+        "allowed_users": {1970409516, 1238430001, 5215728070, 70150109560, 8455781737}
+    },
+
+  "NOR": {
     "rewards": {"💰": 3000},
     "limit": 500,
     "used_count": 0,
@@ -187,6 +196,9 @@ async def process_bonus(message: types.Message, command: CommandObject, get_user
 
     if user_id in bonus["claimed_by"]:
         return await message.reply("🤨 Ты уже активировал этот бонус-код!")
+
+    if "allowed_users" in bonus and user_id not in bonus["allowed_users"]:
+        return await message.reply("🚫 Этот бонус-код предназначен не для тебя.")
 
     # ДОБАВЛЕН await
     user = await get_user(user_id, message.from_user.username)
