@@ -150,14 +150,6 @@ BONUS_CODES = {
     "claimed_by": set()
   },
 
-    "NOE": {
-        "rewards": {"🪙": 500},
-        "limit": 3,
-        "used_count": 0,
-        "expires": datetime.datetime(2026, 5, 1),
-        "claimed_by": set()
-    },
-
     "OLDUSER": {
         "rewards": {"💰": 13500000, "🪙": 2500, "🎁": 5, "📙": 1, "💜": 5555, "🇫🇲": 1},
         "limit": 3,
