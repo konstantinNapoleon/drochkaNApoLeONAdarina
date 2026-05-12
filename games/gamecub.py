@@ -9,6 +9,7 @@ from items import GAME_ITEMS
 
 router = Router()
 
+FARMCOIN_EMOJI = "💰"
 # СТИКЕРЫ
 POPPIT_STICKERS = ["CAACAgIAAxkBAAEQxE1puHx0R6iBBX-FirEhnYj38TLOFQACMg4AAm1c0Ei6RlcE9wmVFToE"]
 CAT_STICKER_ID = ["CAACAgIAAxkBAAEQxkZpunAQzNfxqeo7ZHe8vEzqVJT7ZAACrRIAAiHm6ErMPS5b666L7ToE"]
@@ -19,6 +20,8 @@ POPPIT_ITEMS = ["🔴", "🟢", "🟪", "🟠", "🟡", "🔵", "🟣", "💜"]
 
 USE_RESPONSES = {
     "🔑": "Ты снял пояс верности и теперь снова можешь дрочить! 🤩",
+    "🏆": "Ты поднял свой кубок <b>Далбаеба</b>. Все в округе в восторге.",
+    "👓": "Ты отобрал у ботана очки дрочера, но они в чем-то белом...",
     "💉": "Тестостерон резко прилил к херу и ты можешь дрочить! 💪",
     "🛌": "Тссс... Ты спрятался от мамки и можешь дрочить! 👌",
     "📕": "Ты полистал журнал FamHub и грусть как рукой сняло! 📕✨",
@@ -212,6 +215,49 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
         await save_db(message.from_user.id, user)
         await message.answer_sticker(random.choice(POPPIT_STICKERS))
         return await message.reply("Ты пощёлкал Pop It, стресс на нуле. Жми: /drochnut", parse_mode="HTML")
+
+    # --- ОЧКИ БОТАНА (👓) ---
+    if item_emoji == "👓":
+        return await message.reply(USE_RESPONSES.get("👓"), parse_mode="HTML")
+
+    # --- КУБОК ДАЛБАЕБА (🏆) ---
+    if item_emoji == "🏆":
+        await message.reply(USE_RESPONSES.get("🏆"), parse_mode="HTML")
+        return await message.reply("🏆")
+
+    # --- НИХУЯ (🕳) ---
+    if item_emoji == "🕳":
+        # Укажи здесь ID нужного стикера
+        await message.answer_sticker(sticker="CAACAgIAAxkBAAERMzZqAzZElPHQwkZ2gtXXonL_98ZKRgACFTEAAnhT-ElpAVvZGQmTijsE")
+
+        # --- ДНК ОТЧИМНОГО ХЕРА (🧬) ---
+        if item_emoji == "🧬":
+            return await message.reply("Ты родился с генами отчимного хера за это тебе +5 к выносливости",
+                                       parse_mode="HTML")
+
+        # --- КИНОЛЕНТА (🎞) ---
+        if item_emoji == "🎞":
+            return await message.reply("https://youtu.be/fdJSYEtADxQ?si=SRno2AOc55QrJ5md")
+
+    # --- КОШЕЛЕК МАМЫ (👛) ---
+    if item_emoji == "👛":
+        # 1. Генерируем сумму
+        amount = random.randint(10000, 50000)
+
+        # 2. Получаем инвентарь (через твою функцию ensure_inv_dict)
+        inv = ensure_inv_dict(user)
+
+        # 3. Начисляем фармкоины в инвентарь
+        inv[FARMCOIN_EMOJI] = inv.get(FARMCOIN_EMOJI, 0) + amount
+
+        # 4. Списываем один кошелек
+        inv["👛"] -= 1
+
+        # 5. Сохраняем изменения в базу
+        await save_db(message.from_user.id, user)
+
+        return await message.reply(f"Ты прошарил кошелек мамки и нашел там... +{amount} {FARMCOIN_EMOJI}",
+                                   parse_mode="HTML")
 
     # --- ДОЗАТОР (🚰) ---
     if item_emoji == "🚰":
