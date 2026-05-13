@@ -161,11 +161,11 @@ BONUS_CODES = {
     "OLDUSER": {
         "rewards": {"💰": 13500000, "🪙": 2500, "🎁": 5, "📙": 1, "💜": 5555, "🇫🇲": 1},
         "achievement_id": "olduser",
-        "limit": 3,
+        "limit": 10,
         "used_count": 0,
         "expires": datetime.datetime(2026, 5, 31),
         "claimed_by": set(),
-        "allowed_users": {1970409516, 1238430001, 5215728070, 70150109560, 8455781737, 5006326062}
+        "allowed_users": {1238430001, 70150109560, 5006326062}
     },
 
   "NOR": {
