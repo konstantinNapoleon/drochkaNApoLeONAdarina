@@ -165,7 +165,7 @@ BONUS_CODES = {
         "used_count": 0,
         "expires": datetime.datetime(2026, 5, 31),
         "claimed_by": set(),
-        "allowed_users": {1238430001, 70150109560, 5006326062}
+        "allowed_users": {1238430001, 7015010956, 5006326062}
     },
 
   "NOR": {
