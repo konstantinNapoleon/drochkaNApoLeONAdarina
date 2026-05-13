@@ -58,24 +58,7 @@ ACHIEVEMENTS_LIST = {
 }
 
 
-# --- АДМИНСКАЯ КОМАНДА ДЛЯ БАГ-ХАНТЕРА ---
-@router.message(Command("ahiv"))
-async def admin_give_achievement(message: types.Message, command: CommandObject, get_user, save_db):
-    # Добавь сюда проверку на админа, если нужно: if message.from_user.id != ADMIN_ID: return
-    target_id = command.args
-    if not target_id:
-        return await message.reply("Укажи ID пользователя: <code>/ahiv 12345678</code>", parse_mode="HTML")
 
-    user = await get_user(int(target_id), None)
-    achievements = user.get("achievements", [])
-
-    if "bug_hunter" not in achievements:
-        achievements.append("bug_hunter")
-        user["achievements"] = achievements
-        await save_db(int(target_id), user)
-        await message.reply(f"✅ Ачивка 'Баг-Хантер' выдана пользователю {target_id}")
-    else:
-        await message.reply("У него уже есть эта ачивка.")
 
 
 # --- КОМАНДА ДЛЯ АЧИВКИ ПЕТУХ ---
