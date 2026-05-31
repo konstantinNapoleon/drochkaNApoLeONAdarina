@@ -43,7 +43,11 @@ def get_inventory_data(user_inventory: dict):
         count = user_inventory.get(item_emoji, 0)
         if count > 0:
             item_name = item_info.get("name", "Неизвестный предмет")
-            formatted_items.append(f"• {count} <code>{item_emoji}</code> {html.escape(item_name)}")
+            item_desc = item_info.get("description", "")
+            if item_desc:
+                formatted_items.append(f"• {count} <code>{item_emoji}</code> <b>{html.escape(item_name)}</b>: <i>{html.escape(item_desc)}</i>")
+            else:
+                formatted_items.append(f"• {count} <code>{item_emoji}</code> {html.escape(item_name)}")
 
     # Затем добавляем предметы, которых нет в GAME_ITEMS (если вдруг такие есть в базе)
     for emoji, count in user_inventory.items():
