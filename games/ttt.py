@@ -90,7 +90,7 @@ async def start_ttt(message: types.Message, get_user, save_db):
         "opponent": opp_id,
         "bet": bet,
         "board": ["empty"] * 9,
-        "turn": opp_id,  # Оппонент ходит первым
+        "turn": host_id,  # Хозяин (тот кто вызвал) ходит первым
         "emojis": {host_id: p1_e, opp_id: p2_e},
         "names": {host_id: n1, opp_id: n2},
         "usernames": {host_id: u1, opp_id: u2},  # Вот это починит баг с выдачей приза!
@@ -99,8 +99,8 @@ async def start_ttt(message: types.Message, get_user, save_db):
 
     text = (
         f"<b>Крестики-нолики на {bet} 💰!</b>\n\n"
-        f"{p1_e} {html.escape(n1)}\n"
-        f"{p2_e} {html.escape(n2)} 👈"
+        f"{p1_e} {html.escape(n1)} 👈\n"
+        f"{p2_e} {html.escape(n2)} "
     )
     await message.answer(text, reply_markup=get_board_markup(game_id, ACTIVE_GAMES[game_id]["board"]),
                          parse_mode="HTML")
