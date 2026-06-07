@@ -23,9 +23,11 @@ USE_RESPONSES = {
     "🇫🇲":"Ты потряс флагом <b>Old's drochs</b>. Ты настоящий Олд!",
     "🏆": "Ты поднял свой кубок <b>Далбаеба</b>. Все в округе в восторге.",
     "👓": "Ты отобрал у ботана очки дрочера, но они в чем-то белом...",
+    "🧃": "Ты отдал соседу сок \"Чистая Линия\". Он ушёл довольный! 🧃✨",
     "💉": "Тестостерон резко прилил к херу и ты можешь дрочить! 💪",
     "🛌": "Тссс... Ты спрятался от мамки и можешь дрочить! 👌",
     "📕": "Ты полистал журнал FamHub и грусть как рукой сняло! 📕✨",
+    "💊": "Ты принял АнтиКроп. Судорога прошла! 💊✨",
     "🚛": "Ты сел в рейс с дядей Федором. Гони, гони, быстрее.",
     "🔰": "Ты потряс значком <b>Летофага</b> 🔰. Приехал 410 автобус и увез тебя в Лагерь Совенок. ",
     "🏴‍☠️": "Ты потряс флагом <b>Карибского моря</b> 🏴‍☠️. Приплыл Джек Воробей.",
@@ -81,6 +83,31 @@ def ensure_inv_dict(user) -> dict:
     return user["inventory"]
 
 
+CASE_LOOT_TABLE = [
+    "💩", "🧬", "🎞", "🏀",
+    "🧢", "🩸", "💕", "🎧", "🎄", "👙",
+    "🎶", "💐", "🧨", "💎", "🦄"
+]
+
+# Предметы, которые НИКОГДА не выпадут из кейса
+CASE_EXCLUDE_LIST = [
+    "🏆",      # Кубок Далбаеба
+    "🏚",      # Барак
+    "🏠",      # Дом
+    "🏰",      # Замок
+    "📙",      # Наследие Олда
+    "🇫🇲",     # Old's drochs
+    "🎖️",      # Медаль Beta-Тестера
+    "👑",      # Корона
+    "🔰",      # Значок летофага
+    "🎁",      # Сам кейс (чтобы не выпал сам себе)
+    "🪙",      # Фрага (премиум валюта)
+    "💰"       # Фармкоин (валюта)
+]
+
+
+
+
 async def process_item_use(message: types.Message, item_emoji: str, get_user, save_db):
     if item_emoji == "💦": return
 
@@ -98,6 +125,29 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
     belt_expire = user.get("belt_expire_time", 0)
     lock_reason = user.get("lock_reason")
     is_locked = current_time < belt_expire
+
+    # --- СУПЕР-КЕЙС (🎁) ---
+    if item_emoji == "🎁":
+        # Фильтруем лут: убираем исключения
+        available_loot = [item for item in CASE_LOOT_TABLE if item not in CASE_EXCLUDE_LIST]
+
+        # Выбираем случайный предмет
+        dropped_item = random.choice(available_loot)
+        item_name = GAME_ITEMS[dropped_item].get("name", "Неизвестный предмет")
+        item_emoji_drop = GAME_ITEMS[dropped_item].get("emoji", dropped_item)
+
+        # Добавляем предмет в инвентарь
+        inv_dict[dropped_item] = inv_dict.get(dropped_item, 0) + 1
+
+        # Списываем кейс
+        inv_dict["🎁"] -= 1
+
+        await save_db(message.from_user.id, user)
+
+        return await message.reply(
+            f"🎁 <b>Ты успешно открыл Супер-Кейс и получил:</b>\n{item_emoji_drop} {item_name}",
+            parse_mode="HTML"
+        )
 
     # --- КИРПИЧ (🧱) ---
     if item_emoji == "🧱":
@@ -188,12 +238,18 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
     elif item_emoji == "📕":
         if lock_reason != "sadness" or not is_locked:
             return await message.reply("Ты больше не грустишь. 👍 Журнал не нужен.", parse_mode="HTML")
+    elif item_emoji == "🧃":
+            if lock_reason != "roommate" or not is_locked:
+                return await message.reply("Сосед уже ушёл. 👍 Сок не нужен.", parse_mode="HTML")
+    elif item_emoji == "💊":
+        if lock_reason != "cramp" or not is_locked:
+            return await message.reply("У тебя нет судорог. 👍 АнтиКроп не нужен.", parse_mode="HTML")
     elif item_emoji == "🔑":
         if not is_locked or lock_reason in ["mom", "erection", "sadness"]:
             return await message.reply("На тебе нет пояса верности! 👍 Ключ не нужен.", parse_mode="HTML")
 
     # --- УСПЕШНОЕ ПРИМЕНЕНИЕ (💉, 🛌, 📕, 🔑) ---
-    if item_emoji in ["💉", "🛌", "📕", "🔑"]:
+    if item_emoji in ["💉", "🛌", "📕", "🔑", "🧃", "💊"]:
         user["belt_expire_time"] = 0
         user["lock_reason"] = None
         if "chats_data" in user and chat_id in user["chats_data"]:

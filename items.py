@@ -143,7 +143,7 @@ GAME_ITEMS = {
     },
     "🧃": {
         "name": "Сок “Чистая Линия”",
-        "description": "Для отчима",
+        "description": "Для соседа",
         "price": 25,
         "emoji": "🧃"
     },
