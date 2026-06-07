@@ -35,6 +35,9 @@ from handlers.ivent import router as ivent_router
 from craft.craftlogic import router as craft_router
 from games.rost import router as rost_router
 from handlers.start import router as start_router
+from kalendar.bant import router as bant_router
+from games.robot import router as robot_router, avtorob_scheduler_task
+
 
 from ivent.pass_db import setup_pass_db
 
@@ -236,7 +239,8 @@ async def main():
     # Прокидываем функции в middleware/handlers
     dp["get_user"] = get_user
     dp["save_db"] = save_db
-
+    dp.include_router(robot_router)
+    dp.include_router(bant_router)
     dp.include_router(referal_router)
     dp.include_router(droch_router)
     dp.include_router(gamecub_router)
@@ -263,6 +267,8 @@ async def main():
     dp.include_router(rost_router)
     dp.include_router(pass_router)
     dp.include_router(start_router)
+    # Запуск фонового планировщика робота
+    asyncio.create_task(avtorob_scheduler_task(bot, get_all_users, save_db))
 
     await bot.delete_webhook(drop_pending_updates=True)
     logger.info("🚀 БОТ ЗАПУЩЕН НА ОБЛАЧНОЙ БАЗЕ (SUPABASE)!")

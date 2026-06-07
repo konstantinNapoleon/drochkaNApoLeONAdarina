@@ -287,6 +287,8 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
             f"🚰 <b>Дозатор спрея {status}!</b>\nТеперь спреи будут тратиться автоматически при дрочке.",
             parse_mode="HTML")
 
+
+
     # --- НОВОЕ: ЛУПЫ (🔎 и 🔍) ---
     if item_emoji in ["🔎", "🔍"]:
         bonus = 100 if item_emoji == "🔎" else 1000
@@ -320,6 +322,24 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
     # --- МЯЧ (🏀) ---
     if item_emoji == "🏀":
         return await message.reply_dice(emoji="🏀")
+
+    # --- AVTOROB 3.14 (🤖) ---
+    if item_emoji == "🤖":
+        is_active = user.get("avtorob_active", False)
+        user["avtorob_active"] = not is_active
+
+        if user["avtorob_active"]:
+            user["avtorob_chat_id"] = chat_id
+            user["last_avtorob_time"] = current_time
+        else:
+            user["avtorob_chat_id"] = None
+
+        await save_db(message.from_user.id, user)
+        status = "включил" if user["avtorob_active"] else "выключил"
+        return await message.reply(
+            f"Ты успешно {status} 🤖 <b>Avtorob 3.14</b>!",
+            parse_mode="HTML"
+        )
 
     # --- ОБЩАЯ ЛОГИКА ДЛЯ ОСТАЛЬНЫХ (Машины, Флаги, Книги) ---
     await save_db(message.from_user.id, user)

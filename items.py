@@ -16,147 +16,147 @@ GAME_ITEMS = {
     "🍺": {
         "name": "Пиво",
         "description": "Для смелых алкашей",
-        "price": 15,
+        "price": 5,
         "emoji": "🍺"
     },
     "💦": {
         "name": "Спрей для хуя",
         "description": "Можно подрочить ещё раз",
-        "price": 20,
+        "price": 5,
         "emoji": "💦"
     },
     "💉": {
         "name": "Шприц с тестостероном",
         "description": "Возобновляет упавший член",
-        "price": 23,
+        "price": 7,
         "emoji": "💉"
     },
     "📕": {
         "name": "Журнал “FamHub”",
         "description": "Если вдруг достала порнуха",
-        "price": 23,
+        "price": 7,
         "emoji": "📕"
     },
     "🫖": {
         "name": "Чай",
         "description": "Для бодрости",
-        "price": 23,
+        "price": 7,
         "emoji": "🫖"
     },
     "📘": {
         "name": "Теория крафта",
         "description": "Пособие по крафту",
-        "price": 10,
+        "price": 8,
         "emoji": "📘"
     },
     "👾": {
         "name": "Пиксель",
         "description": "Пикселизирует",
-        "price": 30,
+        "price": 10,
         "emoji": "👾"
     },
     "🌫": {
         "name": "Цемент",
         "description": "Для строительства дома",
-        "price": 30,
+        "price": 10,
         "emoji": "🌫"
     },
     "🟢": {
         "name": "Pop It",
         "description": "Антистресс",
-        "price": 30,
+        "price": 10,
         "emoji": "🟢"
     },
     "🟪": {
         "name": "Pop It",
         "description": "Антистресс",
-        "price": 30,
+        "price": 10,
         "emoji": "🟪"
     },
     "🔴": {
         "name": "Pop It",
         "description": "Антистресс",
-        "price": 30,
+        "price": 10,
         "emoji": "🔴"
     },
     "🟡": {
         "name": "Pop It",
         "description": "Антистресс",
-        "price": 30,
+        "price": 10,
         "emoji": "🟡"
     },
     "🔵": {
         "name": "Pop It",
         "description": "Антистресс",
-        "price": 30,
+        "price": 10,
         "emoji": "🔵"
     },
     "🟠": {
         "name": "Pop It",
         "description": "Антистресс",
-        "price": 50,
+        "price": 10,
         "emoji": "🟠"
     },
     "🟣": {
         "name": "Pop It",
         "description": "Антистресс",
-        "price": 50,
+        "price": 10,
         "emoji": "🟣"
     },
     "💜": {
         "name": "Pop It",
         "description": "Антистресс",
-        "price": 50,
+        "price": 10,
         "emoji": "💜"
     },
 
     "🛌": {
         "name": "Одеяло",
         "description": "Можно спрятаться от мамки",
-        "price": 60,
+        "price": 15,
         "emoji": "🛌"
     },
 
     "🔑": {
         "name": "Ключ",
         "description": "Позволяет снять пояс верности",
-        "price": 60,
+        "price": 15,
         "emoji": "🔑"
     },
     "🔘": {
         "name": "Simple Dimple",
         "description": "Антистресс",
-        "price": 65,
+        "price": 15,
         "emoji": "🔘"
     },
     "🥕": {
         "name": "Морковь",
         "description": "Для крафта снеговика",
-        "price": 75,
+        "price": 20,
         "emoji": "🥕"
     },
     "💊": {
         "name": "АнтиКроп",
         "description": "Если вдруг заразился",
-        "price": 90,
+        "price": 24,
         "emoji": "💊"
     },
     "🧃": {
         "name": "Сок “Чистая Линия”",
         "description": "Для отчима",
-        "price": 100,
+        "price": 25,
         "emoji": "🧃"
     },
     "👝": {
         "name": "Кейс с шмотом",
         "description": "С подарком",
-        "price": 110,
+        "price": 25,
         "emoji": "👝"
     },
     "💫": {
         "name": "Волшебная палочка",
         "description": "Снимает все ограничения",
-        "price": 135,
+        "price": 35,
         "emoji": "💫"
     },
     "🎒": {
@@ -312,7 +312,7 @@ GAME_ITEMS = {
     "📻": {
         "name": "Ебаное радио",
         "description": "Послушать радиовещание",
-        "price": 325,
+        "price": 200,
         "emoji": "📻"
     },
     "🇯🇵": {
@@ -332,31 +332,33 @@ GAME_ITEMS = {
     "🚰": {
         "name": "Дозатор спрея",
         "description": "Автоматически применяет спрей после дрочки",
-        "price": 740,
+        "price": 225,
         "emoji": "🚰"
     },
     "🖼": {
         "name": "Картина худроочера",
         "description": "Личная картина",
-        "price": 800,
+        "price": 500,
         "emoji": "🖼"
+
+
     },
     "👓": {
         "name": "Очки ботана",
         "description": "Позволяет лучше видеть Порнушку (повышение выносливости на 10%)",
-        "price": 900,
+        "price": 350,
         "emoji": "👓"
     },
     "🧤": {
         "name": "Перчатки",
         "description": "Для лучшего скольжения руки (повышение выносливости на 12%)",
-        "price": 1125,
+        "price": 425,
         "emoji": "🧤"
     },
     "🧴": {
         "name": "Мыло",
         "description": "Чистота превыше всего (повышение выносливости на 13%)",
-        "price": 1300,
+        "price": 450,
         "emoji": "🧴"
     },
     "🪖": {
@@ -368,13 +370,13 @@ GAME_ITEMS = {
     "🥼": {
         "name": "Халат бати",
         "description": "Делает дрочку удобнее (повышение выносливости на 15%)",
-        "price": 1550,
+        "price": 550,
         "emoji": "🥼"
     },
     "😷": {
         "name": "Маска",
         "description": "На 90% защищает от болезней, но снижает выносливость на 1%",
-        "price": 1600,
+        "price": 600,
         "emoji": "😷"
     },
     "🍓": {
@@ -387,63 +389,63 @@ GAME_ITEMS = {
     "🔎": {
         "name": "Лупа-подзалупа",
         "description": "+100см при использовании",
-        "price": 1750,
+        "price": 750,
         "emoji": "🔎"
     },
     "🤖": {
         "name": "Avtorob 3.14",
         "description": "Дрочит тебе раз в 2 часа автоматически",
-        "price": 1800,
+        "price": 800,
         "emoji": "🤖"
     },
     "🎱": {
         "name": "Шар №8",
         "description": "Предсказатель (повышение удачи на 5%)",
-        "price": 11000,
+        "price": 1000,
         "emoji": "🎱"
     },
     "🎩": {
         "name": "Цилиндр",
         "description": "Делает тебя незаметным (повышение удачи на 5%)",
-        "price": 11000,
+        "price": 1000,
         "emoji": "🎩"
     },
 
     "🧱": {
         "name": "Кирпич",
         "description": "Кого-нибудь ёбнуть",
-        "price": 11500,
+        "price": 1150,
         "emoji": "🧱"
     },
 
     "🧿": {
         "name": "Амулет греков",
         "description": "Древние знали толк в дрочке (повышение удачи на 7%)",
-        "price": 11500,
+        "price": 1500,
         "emoji": "🧿"
     },
     "🔌": {
         "name": "Вилка для Автодрочера",
         "description": "Увеличивает количество дрочек роботом до 4-6",
-        "price": 12000,
+        "price": 2000,
         "emoji": "🔌"
     },
     "📍": {
         "name": "Чупик",
         "description": "Для горлатых (повышает удачу на 3%)",
-        "price": 12500,
+        "price": 2500,
         "emoji": "📍"
     },
     "🔍": {
         "name": "Супер-лупа-подзалупа",
         "description": "+1000см при использовании",
-        "price": 15000,
+        "price": 5000,
         "emoji": "🔍"
     },
     "📓": {
         "name": "Инструкция по дрочкам от Наставника”",
         "description": "Даёт знания о дрочке (повышение удачи на 20%)",
-        "price": 15000,
+        "price": 5000,
         "emoji": "📓"
     },
 
@@ -451,7 +453,7 @@ GAME_ITEMS = {
     "🎀": {
         "name": "Адвент-календарь",
         "description": "10 подарков",
-        "price": 0,
+        "price": 15000,
         "emoji": "🎀"
     },
     "💝": {
