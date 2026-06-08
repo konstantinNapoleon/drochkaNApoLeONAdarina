@@ -397,6 +397,13 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
             parse_mode="HTML"
         )
 
+    # --- КАРТИНА (🖼) ---
+    if item_emoji == "🖼":
+        from games.kartuna import send_painting
+        await send_painting(message, get_user)
+        return
+
+
     # --- ОБЩАЯ ЛОГИКА ДЛЯ ОСТАЛЬНЫХ (Машины, Флаги, Книги) ---
     await save_db(message.from_user.id, user)
     response_data = USE_RESPONSES.get(item_emoji)
