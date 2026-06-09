@@ -149,6 +149,8 @@ async def process_item_use(message: types.Message, item_emoji: str, get_user, sa
             parse_mode="HTML"
         )
 
+
+
     # --- КИРПИЧ (🧱) ---
     if item_emoji == "🧱":
         if not message.reply_to_message:
