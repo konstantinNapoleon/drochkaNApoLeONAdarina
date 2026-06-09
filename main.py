@@ -39,7 +39,7 @@ from kalendar.bant import router as bant_router
 from games.robot import router as robot_router, avtorob_scheduler_task
 from games.nadin import router as nadin_router
 from games.kartuna import router as kartuna_router
-
+from games.sklad import router as sklad_router
 
 
 from ivent.pass_db import setup_pass_db
@@ -242,6 +242,7 @@ async def main():
     # Прокидываем функции в middleware/handlers
     dp["get_user"] = get_user
     dp["save_db"] = save_db
+    dp.include_router(sklad_router)
     dp.include_router(kartuna_router)
     dp.include_router(nadin_router)
     dp.include_router(robot_router)
