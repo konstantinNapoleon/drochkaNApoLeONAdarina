@@ -233,6 +233,9 @@ async def get_all_users():
 
 # --- ГЛАВНАЯ ФУНКЦИЯ ЗАПУСКА БОТА ---
 
+# Глобальный список задач для корректного завершения
+background_tasks = []
+
 async def main():
     init_db()
 
@@ -274,17 +277,29 @@ async def main():
     dp.include_router(pass_router)
     dp.include_router(start_router)
     # Запуск фонового планировщика робота
-    asyncio.create_task(avtorob_scheduler_task(bot, get_all_users, save_db))
+    task = asyncio.create_task(avtorob_scheduler_task(bot, get_all_users, save_db))
+    background_tasks.append(task)
 
     await bot.delete_webhook(drop_pending_updates=True)
     logger.info("🚀 БОТ ЗАПУЩЕН НА ОБЛАЧНОЙ БАЗЕ (SUPABASE)!")
 
-    await dp.start_polling(
-        bot,
-        get_user=get_user,
-        save_db=save_db,
-        get_all_users=get_all_users
-    )
+    try:
+        await dp.start_polling(
+            bot,
+            get_user=get_user,
+            save_db=save_db,
+            get_all_users=get_all_users
+        )
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("🛑 Остановка бота...")
+        # Отмена всех фоновых задач
+        for task in background_tasks:
+            task.cancel()
+        # Ожидание завершения всех задач
+        if background_tasks:
+            await asyncio.gather(*background_tasks, return_exceptions=True)
+        logger.info("🛑 Бот остановлен.")
+        raise
 
 
 if __name__ == "__main__":
@@ -294,3 +309,6 @@ if __name__ == "__main__":
         logger.info("🛑 Бот остановлен.")
     except Exception as e:
         logger.critical(f"Критическая ошибка: {e}", exc_info=True)
+    finally:
+        # Финальная очистка - закрытие всех соединений с БД
+        logger.info(" очистка ресурсов...")
