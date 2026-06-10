@@ -39,13 +39,13 @@ from kalendar.bant import router as bant_router
 from games.robot import router as robot_router, avtorob_scheduler_task
 from games.nadin import router as nadin_router
 from games.kartuna import router as kartuna_router
-from games.sklad import router as sklad_router
+
 
 
 from ivent.pass_db import setup_pass_db
 
 
-from ivent.pass_handler import router as pass_router
+
 
 
 
@@ -245,7 +245,7 @@ async def main():
     # Прокидываем функции в middleware/handlers
     dp["get_user"] = get_user
     dp["save_db"] = save_db
-    dp.include_router(sklad_router)
+
     dp.include_router(kartuna_router)
     dp.include_router(nadin_router)
     dp.include_router(robot_router)
@@ -274,7 +274,6 @@ async def main():
     dp.include_router(ivent_router)
     dp.include_router(craft_router)
     dp.include_router(rost_router)
-    dp.include_router(pass_router)
     dp.include_router(start_router)
     # Запуск фонового планировщика робота
     task = asyncio.create_task(avtorob_scheduler_task(bot, get_all_users, save_db))
